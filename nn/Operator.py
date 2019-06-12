@@ -204,6 +204,57 @@ class Linear(Operator):
             self.wait_forward = True
 
 
+class MaxPooling(Operator):
+    def __init__(self, ksize: int, input_variable: Variable, name: str, stride: int):
+        if not isinstance(input_variable, Variable):
+            raise Exception("Operator MaxPooling name: %s's input_variable is not instance of Variable" % name)
+
+        self.ksize = ksize
+        self.stride = stride
+        self.batch_size = input_variable.shape[0]
+        self.output_channels = input_variable.shape[-1]
+        self.index = np.zeros(input_variable.shape)
+
+        self.input_variables = input_variable
+        _output_shape = [self.batch_size,
+                         input_variable.shape[2] / stride,
+                         input_variable.shape[2] / stride,
+                         self.output_channels]
+        self.output_variables = Variable(_output_shape, name='out', scope=name)
+        Operator.__init__(self, name, [self.input_variables], [self.output_variables])
+
+    def forward(self):
+        if self.wait_forward:
+            for parent in self.parent:
+                GLOBAL_VARIABLE_SCOPE[parent].eval()
+            self._pool()
+            self.wait_forward = False
+
+    def backward(self):
+        if not self.wait_forward:
+            for child in self.child:
+                GLOBAL_VARIABLE_SCOPE[child].diff_eval()
+            self.input_variables.diff = np.repeat(np.repeat(
+                self.output_variables.diff, self.stride, axis=1
+            ), self.stride, axis=2) * self.index
+            self.wait_forward = True
+
+    def _pool(self):
+        _out = np.zeros(self.output_variables.shape)
+        for b in range(self.input_variables.shape[0]):
+            for c in range(self.output_channels):
+                for i in range(0, self.input_variables.shape[1], self.stride):
+                    for j in range(0, self.input_variables.shape[2], self.stride):
+                        _out[b, i / self.stride, j / self.stride, c] = np.max(self.input_variables.data[b,
+                                                                              i: i + self.ksize,
+                                                                              j: j + self.ksize, c])
+                        index = np.argmax(self.input_variables.data[b,
+                                          i: i + self.ksize,
+                                          j: j + self.ksize, c])
+                        self.index[b, i + index / self.stride, j + index % self.stride, c] = 1
+        self.output_variables.data = _out
+
+
 def register_graph(input_variables: list, output_variables: list, operator: Operator):
     for variable in input_variables:
         variable.child.append(operator.name)
