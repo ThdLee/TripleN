@@ -255,6 +255,52 @@ class MaxPooling(Operator):
         self.output_variables.data = _out
 
 
+class SoftmaxLoss(Operator):
+    def __init__(self, predict: Variable, label: Variable, name=str):
+        self.batch_size = predict.shape[0]
+        self.input_variables = [predict, label]
+        self.loss = Variable([1], name='loss', scope=name, init='None')
+        self.prediction = Variable(predict.shape, name='prediction', scope=name)
+        self.softmax = np.zeros(self.prediction.shape)
+
+        self.output_variables = [self.loss, self.prediction]
+        Operator.__init__(self, name, self.input_variables, self.output_variables)
+
+    def forward(self):
+        if self.wait_forward:
+            for parent in self.parent:
+                GLOBAL_VARIABLE_SCOPE[parent].eval()
+
+            predict = self.input_variables[0].data
+            label = self.input_variables[1].data
+
+            self.prediction.data = self.predict(predict)
+
+            self.loss.data = 0
+            for i in range(self.batch_size):
+                self.loss.data += np.log(np.sum(np.exp(predict[i]))) - predict[i, label[i]]
+
+            self.wait_forward = False
+
+    def backward(self):
+        if not self.wait_forward:
+            for child in self.child:
+                GLOBAL_VARIABLE_SCOPE[child].diff_eval()
+            self.input_variables[0].diff = self.softmax.copy()
+            for i in range(self.batch_size):
+                self.input_variables[0].diff[i, self.input_variables[1].data[i]] -= 1
+            self.wait_forward = True
+
+    def predict(self, prediction):
+        exp_prediction = np.zeros(prediction.shape)
+        self.softmax = np.zeros(prediction.shape)
+        for i in range(self.batch_size):
+            prediction[i, :] -= np.max(prediction[i, :])
+            exp_prediction[i] = np.exp(prediction[i])
+            self.softmax[i] = exp_prediction[i] / np.sum(exp_prediction[i])
+        return self.softmax
+
+
 def register_graph(input_variables: list, output_variables: list, operator: Operator):
     for variable in input_variables:
         variable.child.append(operator.name)
