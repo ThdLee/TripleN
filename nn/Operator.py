@@ -255,6 +255,42 @@ class MaxPooling(Operator):
         self.output_variables.data = _out
 
 
+class Dropout(Operator):
+    def __init__(self, name: str, phase: str, input_variable: Variable, prob: float = 0.5):
+        self.input_variables = input_variable
+        self.output_variables = Variable(shape=input_variable.shape, scope=name, name='out')
+        self.prob = prob
+        self.phase = phase
+        self.index = np.ones(input_variable.shape)
+        Operator.__init__(self, name, [self.input_variables], [self.output_variables])
+
+    def forward(self):
+        if self.wait_forward:
+            for parent in self.parent:
+                GLOBAL_VARIABLE_SCOPE[parent].eval()
+            if self.phase == 'train':
+                self.index = np.random.random(self.input_variables.shape) < self.prob
+                self.output_variables.data = self.input_variables.data * self.index
+            elif self.phase == 'test':
+                self.output_variables.data = self.input_variables.data
+            else:
+                raise Exception("Operator %s phase is not in test or train" % self.name)
+            self.wait_forward = False
+
+    def backward(self):
+        if not self.wait_forward:
+            for child in self.child:
+                GLOBAL_VARIABLE_SCOPE[child].diff_eval()
+            if self.phase == 'train':
+                self.input_variables.diff = self.output_variables.diff * self.index / self.prob
+            elif self.phase == 'test':
+                self.output_variables.diff = self.input_variables.diff
+            else:
+                raise Exception("Operator %s phase is not in test or train" % self.name)
+
+            self.wait_forward = True
+
+
 class SoftmaxLoss(Operator):
     def __init__(self, predict: Variable, label: Variable, name=str):
         self.batch_size = predict.shape[0]
