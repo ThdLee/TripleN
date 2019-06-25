@@ -5,23 +5,22 @@ from tensor import Parameter
 
 
 class Linear(Module):
-    def __init__(self, shape, output_num=2):
-        self.input_shape = shape
-        self.batch_size = shape[0]
+    def __init__(self, input_size: int, output_size: int):
+        super(Linear, self).__init__()
+        self.input_size = input_size
+        self.output_size = output_size
 
-        input_len = reduce(lambda x, y: x * y, shape[1:])
-
-        self.weights = Parameter(np.random.standard_normal((input_len, output_num)) / 100)
-        self.bias = Parameter(np.random.standard_normal(output_num) / 100)
-
-        self.output_shape = [self.batch_size, output_num]
+        self.weights = Parameter(np.random.standard_normal((input_size, output_size)) / 100)
+        self.bias = Parameter(np.random.standard_normal(output_size) / 100)
 
     def forward(self, x):
-        x = x.reshape([self.batch_size, -1])
-        output = np.dot(self.x, self.weights.data) + self.bias
-        return output
+        batch_size = x.shape[0]
+        self.input_shape = x.shape
+        self.x = x.reshape([batch_size, -1])
+        output = np.dot(x, self.weights.data) + self.bias.data
+        return np.reshape(output, x.shape[:-1] + [self.output_size])
 
-    def gradient(self, grad_output):
+    def backward(self, grad_output):
         for i in range(grad_output.shape[0]):
             col_x = self.x[i][:, np.newaxis]
             eta_i = grad_output[i][:, np.newaxis].T

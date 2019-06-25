@@ -4,7 +4,7 @@ from nn.linear import Linear
 from nn.pooling import MaxPooling, AvgPooling
 from nn.loss import CrossEntropyLoss
 from nn.activation import Relu
-
+from nn.module import Module
 import time
 import struct
 from glob import glob
@@ -34,6 +34,33 @@ images, labels = load_mnist('./data/mnist')
 test_images, test_labels = load_mnist('./data/mnist', 't10k')
 
 batch_size = 64
+
+
+class Lenet(Module):
+    def __init__(self):
+        super(Lenet, self).__init__()
+
+        self.conv1 = Conv2D(shape=(28, 28, 1), output_channels=12, ksize=5)
+        self.relu1 = Relu()
+        self.pool1 = MaxPooling(ksize=2)
+        self.conv2 = Conv2D(shape=(12, 12, 12), output_channels=12, ksize=3)
+        self.relu2 = Relu()
+        self.pool2 = MaxPooling(ksize=2)
+        self.fc = Linear(10 * 10 * 12, 10)
+
+    def forward(self, input):
+        conv1_out = self.pool1(self.relu1(self.conv1(input)))
+        conv2_out = self.pool2(self.relu2(self.conv2(conv1_out)))
+        output = self.fc(conv2_out)
+        return output
+
+    def backward(self, grad):
+        self.conv1.backward(self.relu1.backward(self.pool1.backward(
+            self.conv2.backward(self.relu2.backward(self.pool2.backward(
+                self.fc.backward(grad)))))))
+
+
+
 
 conv1 = Conv2D([batch_size, 28, 28, 1], 12, 5, 1)
 relu1 = Relu(conv1.output_shape)

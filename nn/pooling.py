@@ -61,20 +61,18 @@ class AvgPooling(Module):
 
 
 class MaxPooling(Module):
-    def __init__(self, shape, ksize=2, stride=2):
+    def __init__(self, ksize=2, stride=None):
         super(MaxPooling, self).__init__()
-        self.input_shape = shape
         self.ksize = ksize
-        self.stride = stride
-        self.output_channels = shape[-1]
-        self.index = Tensor(np.zeros(shape))
-        self.output_shape = [shape[0], shape[1] // self.stride, shape[2] // self.stride, self.output_channels]
+        self.stride = stride or ksize
 
     def forward(self, x):
-        out = np.zeros([x.shape[0], x.shape[1] // self.stride, x.shape[2] // self.stride, self.output_channels])
-
+        output_channels = x.shape[-1]
+        shape = [x.shape[0], x.shape[1] // self.stride, x.shape[2] // self.stride, output_channels]
+        out = np.zeros(shape)
+        self.index = Tensor(np.zeros(shape))
         for b in range(x.shape[0]):
-            for c in range(self.output_channels):
+            for c in range(output_channels):
                 for i in range(0, x.shape[1], self.stride):
                     for j in range(0, x.shape[2], self.stride):
                         out[b, i // self.stride, j // self.stride, c] = np.max(

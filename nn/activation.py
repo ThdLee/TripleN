@@ -4,10 +4,9 @@ from tensor import Tensor
 
 
 class Relu(Module):
-    def __init__(self, shape):
+    def __init__(self):
         super(Relu, self).__init__()
-        self.output_shape = shape
-        self.buffer = Tensor(np.zeros(shape))
+        self.buffer = Tensor(np.zeros(1))
 
     def forward(self, x):
         self.buffer.data = x

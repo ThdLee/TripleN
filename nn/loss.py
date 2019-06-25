@@ -9,26 +9,24 @@ class CrossEntropyLoss(Module):
         self.eta = np.zeros(shape)
         self.batch_size = shape[0]
 
-    def cal_loss(self, input, target):
-        self.input = input
-        self.target = target
-        self.cal_prob(input)
-        self.loss = 0
-        for i in range(self.batch_size):
-            self.loss = np.log(np.sum(np.exp(input[i]))) - input[i, target[i]]
-        return self.loss
+    def forward(self, input, target):
+        batch_size = input.shape[0]
 
-    def cal_prob(self, input):
         exp_prediction = np.zeros(input.shape)
-        self.softmax = np.zeros(input.shape)
-        for i in range(self.batch_size):
+        grad = np.zeros(input.shape)
+        for i in range(batch_size):
             input[i, :] -= np.max(input[i, :])
             exp_prediction[i] = np.exp(input[i])
-            self.softmax[i] = exp_prediction[i] / np.sum(exp_prediction[i])
-        return self.softmax
+            grad[i] = exp_prediction[i] / np.sum(exp_prediction[i])
 
-    def gradient(self):
-        self.eta = self.softmax.copy()
-        for i in range(self.batch_size):
-            self.eta[i, self.target[i]] -= 1
-        return self.eta
+        loss = 0
+        for i in range(batch_size):
+            loss += np.log(np.sum(np.exp(input[i]))) - input[i, target[i]]
+
+        for i in range(batch_size):
+            grad[i, target[i]] -= 1
+        return loss, grad
+
+    def backward(self):
+        raise NotImplementedError
+
