@@ -1,46 +1,36 @@
 import numpy as np
-import math
 from functools import reduce
+from nn.module import Module
+from tensor import Parameter
 
 
-class Linear(object):
+class Linear(Module):
     def __init__(self, shape, output_num=2):
         self.input_shape = shape
         self.batch_size = shape[0]
 
         input_len = reduce(lambda x, y: x * y, shape[1:])
 
-        self.weights = np.random.standard_normal((input_len, output_num)) / 100
-        self.bias = np.random.standard_normal(output_num) / 100
+        self.weights = Parameter(np.random.standard_normal((input_len, output_num)) / 100)
+        self.bias = Parameter(np.random.standard_normal(output_num) / 100)
 
         self.output_shape = [self.batch_size, output_num]
-        self.w_gradient = np.zeros(self.weights.shape)
-        self.b_gradient = np.zeros(self.bias.shape)
 
     def forward(self, x):
-        self.x = x.reshape([self.batch_size, -1])
-        output = np.dot(self.x, self.weights) + self.bias
+        x = x.reshape([self.batch_size, -1])
+        output = np.dot(self.x, self.weights.data) + self.bias
         return output
 
-    def gradient(self, eta):
-        for i in range(eta.shape[0]):
+    def gradient(self, grad_output):
+        for i in range(grad_output.shape[0]):
             col_x = self.x[i][:, np.newaxis]
-            eta_i = eta[i][:, np.newaxis].T
-            self.w_gradient += np.dot(col_x, eta_i)
-            self.b_gradient += eta_i.reshape(self.bias.shape)
+            eta_i = grad_output[i][:, np.newaxis].T
+            self.weights._grad += np.dot(col_x, eta_i)
+            self.bias._grad += eta_i.reshape(self.bias.shape)
 
-        next_eta = np.dot(eta, self.weights.T)
-        next_eta = np.reshape(next_eta, self.input_shape)
-        return next_eta
-
-    def backward(self, alpha, weight_decay):
-        self.weights *= (1 - weight_decay)
-        self.bias *= (1 - weight_decay)
-        self.weights -= alpha * self.w_gradient
-        self.bias -= alpha * self.b_gradient
-
-        self.w_gradient.fill(0)
-        self.b_gradient.fill(0)
+        next_grad = np.dot(grad_output, self.weights.data.T)
+        next_grad = np.reshape(next_grad, self.input_shape)
+        return next_grad
 
 
 if __name__ == "__main__":

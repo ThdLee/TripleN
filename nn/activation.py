@@ -1,17 +1,18 @@
 import numpy as np
+from nn.module import Module
+from tensor import Tensor
 
 
-class Relu(object):
+class Relu(Module):
     def __init__(self, shape):
-        self.eta = np.zeros(shape)
-        self.x = np.zeros(shape)
+        super(Relu, self).__init__()
         self.output_shape = shape
+        self.buffer = Tensor(np.zeros(shape))
 
     def forward(self, x):
-        self.x = x
+        self.buffer.data = x
         return np.maximum(x, 0)
 
-    def gradient(self, eta):
-        self.eta = eta
-        self.eta[self.x < 0] = 0
-        return self.eta
+    def backward(self, grad_output):
+        grad_output[self.buffer.data < 0] = 0
+        return grad_output

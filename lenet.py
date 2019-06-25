@@ -5,7 +5,6 @@ from nn.pooling import MaxPooling, AvgPooling
 from nn.loss import CrossEntropyLoss
 from nn.activation import Relu
 
-
 import time
 import struct
 from glob import glob
@@ -86,8 +85,8 @@ for epoch in range(20):
                 train_acc += 1
 
         sf.gradient()
-        conv1.gradient(relu1.gradient(pool1.gradient(
-            conv2.gradient(relu2.gradient(pool2.gradient(
+        conv1.bacward(relu1.gradient(pool1.gradient(
+            conv2.bacward(relu2.gradient(pool2.gradient(
                 fc.gradient(sf.eta)))))))
 
         if i % 1 == 0:

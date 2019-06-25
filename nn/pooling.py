@@ -1,20 +1,17 @@
 import numpy as np
+from nn.module import Module
+from tensor import Tensor
 
 
-class AvgPooling(object):
+class AvgPooling(Module):
     def __init__(self, shape, ksize=2, stride=2):
+        super(AvgPooling, self).__init__()
         self.input_shape = shape
         self.ksize = ksize
         self.stride = stride
         self.output_channels = shape[-1]
-        self.integral = np.zeros(shape)
-        self.index = np.zeros(shape)
-
-    def gradient(self, eta):
-        next_eta = np.repeat(eta, self.stride, axis=1)
-        next_eta = np.repeat(next_eta, self.stride, axis=2)
-        next_eta = next_eta * self.index
-        return next_eta / (self.ksize ** 2)
+        self.integral = Tensor(np.zeros(shape))
+        self.index = Tensor(np.zeros(shape))
 
     def forward(self, x):
         for b in range(x.shape[0]):
@@ -24,9 +21,9 @@ class AvgPooling(object):
                     for j in range(x.shape[2]):
                         row_sum += x[b, i, j, c]
                         if i == 0:
-                            self.integral[b, i, j, c] = row_sum
+                            self.integral.data[b, i, j, c] = row_sum
                         else:
-                            self.integral[b, i, j, c] = self.integral[b, i - 1, j, c] + row_sum
+                            self.integral.data[b, i, j, c] = self.integral.data[b, i - 1, j, c] + row_sum
         out = np.zeros([x.shape[0], x.shape[1] // self.stride, x.shape[2] // self.stride, self.output_channels],
                        dtype=float)
 
@@ -34,36 +31,43 @@ class AvgPooling(object):
             for c in range(self.output_channels):
                 for i in range(0, x.shape[1], self.stride):
                     for j in range(0, x.shape[2], self.stride):
-                        self.index[b, i:i + self.ksize, j:j + self.ksize, c] = 1
+                        self.index.data[b, i:i + self.ksize, j:j + self.ksize, c] = 1
                         if i == 0 and j == 0:
-                            out[b, i // self.stride, j // self.stride, c] = self.integral[
+                            out[b, i // self.stride, j // self.stride, c] = self.integral.data[
                                 b, self.ksize - 1, self.ksize - 1, c]
                         elif i == 0:
-                            out[b, i // self.stride, j // self.stride, c] = self.integral[b, 1, j + self.ksize - 1, c] - \
-                                                                            self.integral[b, 1, j - 1, c]
+                            out[b, i // self.stride, j // self.stride, c] = self.integral.data[b, 1, j + self.ksize - 1, c] - \
+                                                                            self.integral.data[b, 1, j - 1, c]
                         elif j == 0:
-                            out[b, i // self.stride, j // self.stride, c] = self.integral[b, i + self.ksize - 1, 1, c] - \
-                                                                            self.integral[b, i - 1, 1, c]
+                            out[b, i // self.stride, j // self.stride, c] = self.integral.data[b, i + self.ksize - 1, 1, c] - \
+                                                                            self.integral.data[b, i - 1, 1, c]
                         else:
-                            out[b, i // self.stride, j // self.stride, c] = self.integral[
+                            out[b, i // self.stride, j // self.stride, c] = self.integral.data[
                                                                                 b, i + self.ksize - 1, j + self.ksize - 1, c] - \
-                                                                            self.integral[
+                                                                            self.integral.data[
                                                                                 b, i - 1, j + self.ksize - 1, c] - \
-                                                                            self.integral[
+                                                                            self.integral.data[
                                                                                 b, i + self.ksize - 1, j - 1, c] + \
-                                                                            self.integral[b, i - 1, j - 1, c]
+                                                                            self.integral.data[b, i - 1, j - 1, c]
 
         out /= (self.ksize * self.ksize)
         return out
+    
+    def backward(self, grad_output):
+        next_grad = np.repeat(grad_output, self.stride, axis=1)
+        next_grad = np.repeat(next_grad, self.stride, axis=2)
+        next_grad = next_grad * self.index
+        return next_grad / (self.ksize ** 2)
 
 
-class MaxPooling(object):
+class MaxPooling(Module):
     def __init__(self, shape, ksize=2, stride=2):
+        super(MaxPooling, self).__init__()
         self.input_shape = shape
         self.ksize = ksize
         self.stride = stride
         self.output_channels = shape[-1]
-        self.index = np.zeros(shape)
+        self.index = Tensor(np.zeros(shape))
         self.output_shape = [shape[0], shape[1] // self.stride, shape[2] // self.stride, self.output_channels]
 
     def forward(self, x):
@@ -76,11 +80,11 @@ class MaxPooling(object):
                         out[b, i // self.stride, j // self.stride, c] = np.max(
                             x[b, i:i + self.ksize, j:j + self.ksize, c])
                         index = np.argmax(x[b, i:i + self.ksize, j:j + self.ksize, c])
-                        self.index[b, i + index // self.stride, j + index % self.stride, c] = 1
+                        self.index.data[b, i + index // self.stride, j + index % self.stride, c] = 1
         return out
 
-    def gradient(self, eta):
-        return np.repeat(np.repeat(eta, self.stride, axis=1), self.stride, axis=2) * self.index
+    def backward(self, grad_output):
+        return np.repeat(np.repeat(grad_output, self.stride, axis=1), self.stride, axis=2) * self.index
 
 
 if __name__ == "__main__":
