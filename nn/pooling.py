@@ -70,15 +70,15 @@ class MaxPooling(Module):
         output_channels = x.shape[-1]
         shape = [x.shape[0], x.shape[1] // self.stride, x.shape[2] // self.stride, output_channels]
         out = np.zeros(shape)
-        self.index = Tensor(np.zeros(shape))
-        for b in range(x.shape[0]):
+        self.index = np.zeros(x.shape)
+        for b in range(shape[0]):
             for c in range(output_channels):
-                for i in range(0, x.shape[1], self.stride):
-                    for j in range(0, x.shape[2], self.stride):
+                for i in range(0, shape[1], self.stride):
+                    for j in range(0, shape[2], self.stride):
                         out[b, i // self.stride, j // self.stride, c] = np.max(
                             x[b, i:i + self.ksize, j:j + self.ksize, c])
                         index = np.argmax(x[b, i:i + self.ksize, j:j + self.ksize, c])
-                        self.index.data[b, i + index // self.stride, j + index % self.stride, c] = 1
+                        self.index[b, i + index // self.stride, j + index % self.stride, c] = 1
         return out
 
     def backward(self, grad_output):

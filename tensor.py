@@ -10,8 +10,7 @@ class Tensor(object):
 
         self.requires_grad = requires_grad
         if self.requires_grad:
-            self._grad = np.zeros(data.shape, data.dtype)
-
+            self.grad = np.zeros(data.shape, data.dtype)
         self.shape = self.data.shape
 
     def size(self):

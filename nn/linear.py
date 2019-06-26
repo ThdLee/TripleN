@@ -17,15 +17,15 @@ class Linear(Module):
         batch_size = x.shape[0]
         self.input_shape = x.shape
         self.x = x.reshape([batch_size, -1])
-        output = np.dot(x, self.weights.data) + self.bias.data
-        return np.reshape(output, x.shape[:-1] + [self.output_size])
+        output = np.dot(self.x, self.weights.data) + self.bias.data
+        return np.reshape(output, (batch_size, self.output_size))
 
     def backward(self, grad_output):
         for i in range(grad_output.shape[0]):
             col_x = self.x[i][:, np.newaxis]
             eta_i = grad_output[i][:, np.newaxis].T
-            self.weights._grad += np.dot(col_x, eta_i)
-            self.bias._grad += eta_i.reshape(self.bias.shape)
+            self.weights.grad += np.dot(col_x, eta_i)
+            self.bias.grad += eta_i.reshape(self.bias.shape)
 
         next_grad = np.dot(grad_output, self.weights.data.T)
         next_grad = np.reshape(next_grad, self.input_shape)

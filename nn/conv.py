@@ -4,7 +4,9 @@ from functools import reduce
 from tensor import Parameter
 from nn.module import Module
 import torch.nn as nn
+
 nn.MaxPool1d
+
 
 class Conv2D(Module):
     def __init__(self, shape: tuple, output_channels: int, ksize: int = 3, stride: int = 1, padding: int = 0):
@@ -21,7 +23,7 @@ class Conv2D(Module):
             (ksize, ksize, self.input_channels, self.output_channels)) / weights_scale)
         self.bias = Parameter(np.random.standard_normal(self.output_channels) / weights_scale)
 
-        self.output_shape = (shape[0], (shape[1] - ksize + 1) // self.stride,
+        self.output_shape = ((shape[0] - ksize + 1) // self.stride,
                              (shape[1] - ksize + 1) // self.stride, self.output_channels)
 
     def forward(self, x):
@@ -32,11 +34,11 @@ class Conv2D(Module):
                    'constant', constant_values=0)
 
         self.col_image = []
-        conv_out = np.zeros(self.output_shape)
+        conv_out = np.zeros([batch_size] + list(self.output_shape))
         for i in range(batch_size):
             img_i = x[i][np.newaxis, :]
             self.col_image_i = im2col(img_i, self.ksize, self.stride)
-            conv_out[i] = np.reshape(np.dot(self.col_image_i, col_weights) + self.bias.data, self.output_shape[1:])
+            conv_out[i] = np.reshape(np.dot(self.col_image_i, col_weights) + self.bias.data, self.output_shape)
             self.col_image.append(self.col_image_i)
         self.col_image = np.array(self.col_image)
         return conv_out
@@ -46,8 +48,8 @@ class Conv2D(Module):
         col_grad_output = np.reshape(grad_output, [batch_size, -1, self.output_channels])
 
         for i in range(batch_size):
-            self.weights._grad += np.dot(self.col_image[i].T, col_grad_output[i]).reshape(self.weights.shape)
-        self.bias._grad += np.sum(col_grad_output, axis=(0, 1))
+            self.weights.grad += np.dot(self.col_image[i].T, col_grad_output[i]).reshape(self.weights.shape)
+        self.bias.grad += np.sum(col_grad_output, axis=(0, 1))
 
         pad_grad = np.pad(grad_output, ((0, 0), (self.ksize - 1 - self.padding, self.ksize - 1 - self.padding),
                                         (self.ksize - 1 - self.padding, self.ksize - 1 - self.padding), (0, 0)),
@@ -59,7 +61,7 @@ class Conv2D(Module):
         col_pad_grad = np.array(
             [im2col(pad_grad[i][np.newaxis, :], self.ksize, self.stride) for i in range(batch_size)])
         next_grad = np.dot(col_pad_grad, col_flip_weights)
-        next_grad = np.reshape(next_grad, self.input_shape)
+        next_grad = np.reshape(next_grad, [batch_size] + list(self.input_shape))
         return next_grad
 
 

@@ -9,10 +9,10 @@ class Module(object):
         self._modules = OrderedDict()
         self.training = True
 
-    def __call__(self, *input, **kwargs):
-        return self.forward(input, kwargs)
+    def __call__(self, *input):
+        return self.forward(*input)
 
-    def forward(self, *input, **kwargs):
+    def forward(self, *input):
         raise NotImplementedError
 
     def backward(self, *grad):
@@ -266,6 +266,3 @@ class Module(object):
         for p in self.parameters():
             if p.grad is not None:
                 p.grad = 0
-
-    def __call__(self, *args, **kwargs):
-        return self.forward(args, kwargs)

@@ -5,6 +5,8 @@ from nn.pooling import MaxPooling, AvgPooling
 from nn.loss import CrossEntropyLoss
 from nn.activation import Relu
 from nn.module import Module
+from optim.sgd import SGD
+from optim.adam import Adam
 import time
 import struct
 from glob import glob
@@ -46,7 +48,7 @@ class Lenet(Module):
         self.conv2 = Conv2D(shape=(12, 12, 12), output_channels=12, ksize=3)
         self.relu2 = Relu()
         self.pool2 = MaxPooling(ksize=2)
-        self.fc = Linear(10 * 10 * 12, 10)
+        self.fc = Linear(5 * 5 * 12, 10)
 
     def forward(self, input):
         conv1_out = self.pool1(self.relu1(self.conv1(input)))
@@ -54,22 +56,16 @@ class Lenet(Module):
         output = self.fc(conv2_out)
         return output
 
-    def backward(self, grad):
+    def backward(self, grad_output):
         self.conv1.backward(self.relu1.backward(self.pool1.backward(
             self.conv2.backward(self.relu2.backward(self.pool2.backward(
-                self.fc.backward(grad)))))))
+                self.fc.backward(grad_output)))))))
 
 
+model = Lenet()
 
-
-conv1 = Conv2D([batch_size, 28, 28, 1], 12, 5, 1)
-relu1 = Relu(conv1.output_shape)
-pool1 = MaxPooling(relu1.output_shape)
-conv2 = Conv2D(pool1.output_shape, 24, 3, 1)
-relu2 = Relu(conv2.output_shape)
-pool2 = MaxPooling(relu2.output_shape)
-fc = Linear(pool2.output_shape, 10)
-sf = CrossEntropyLoss(fc.output_shape)
+criterion = CrossEntropyLoss()
+optimizer = Adam(model.parameters())
 
 
 # train_loss_record = []
@@ -98,57 +94,43 @@ for epoch in range(20):
     for i in range(images.shape[0] // batch_size):
         img = images[i * batch_size:(i + 1) * batch_size].reshape([batch_size, 28, 28, 1])
         label = labels[i * batch_size:(i + 1) * batch_size]
-        conv1_out = relu1.forward(conv1.forward(img))
-        pool1_out = pool1.forward(conv1_out)
-        conv2_out = relu2.forward(conv2.forward(pool1_out))
-        pool2_out = pool2.forward(conv2_out)
-        fc_out = fc.forward(pool2_out)
-        batch_loss += sf.cal_loss(fc_out, np.array(label))
-        train_loss += sf.cal_loss(fc_out, np.array(label))
+
+        output = model(img)
+        loss, grad = criterion(output, label)
 
         for j in range(batch_size):
-            if np.argmax(sf.softmax[j]) == label[j]:
+            if np.argmax(output[j]) == label[j]:
                 batch_acc += 1
                 train_acc += 1
 
-        sf.gradient()
-        conv1.bacward(relu1.gradient(pool1.gradient(
-            conv2.bacward(relu2.gradient(pool2.gradient(
-                fc.gradient(sf.eta)))))))
+        model.backward(grad)
+        optimizer.step()
+        model.zero_grad()
 
-        if i % 1 == 0:
-            fc.backward(alpha=learning_rate, weight_decay=0.0004)
-            conv2.backward(alpha=learning_rate, weight_decay=0.0004)
-            conv1.backward(alpha=learning_rate, weight_decay=0.0004)
+        if i % 50 == 0:
+            print(time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()) + \
+                  "  epoch: %d ,  batch: %5d , avg_batch_acc: %.4f  avg_batch_loss: %.4f  learning_rate %f" % (epoch,
+                                                                                                               i,
+                                                                                                               batch_acc / float(
+                                                                                                                   batch_size),
+                                                                                                               loss / batch_size,
+                                                                                                               learning_rate))
 
-            if i % 50 == 0:
-                print(time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()) + \
-                      "  epoch: %d ,  batch: %5d , avg_batch_acc: %.4f  avg_batch_loss: %.4f  learning_rate %f" % (epoch,
-                                                                                                 i, batch_acc / float(
-                          batch_size), batch_loss / batch_size, learning_rate))
-
-
-            batch_loss = 0
-            batch_acc = 0
-
+        batch_loss = 0
+        batch_acc = 0
 
     print(time.strftime("%Y-%m-%d %H:%M:%S",
                             time.localtime()) + "  epoch: %5d , train_acc: %.4f  avg_train_loss: %.4f" % (
             epoch, train_acc / float(images.shape[0]), train_loss / images.shape[0]))
 
     # validation
-    for i in range(test_images.shape[0] / batch_size):
+    for i in range(test_images.shape[0] // batch_size):
         img = test_images[i * batch_size:(i + 1) * batch_size].reshape([batch_size, 28, 28, 1])
         label = test_labels[i * batch_size:(i + 1) * batch_size]
-        conv1_out = relu1.forward(conv1.forward(img))
-        pool1_out = pool1.forward(conv1_out)
-        conv2_out = relu2.forward(conv2.forward(pool1_out))
-        pool2_out = pool2.forward(conv2_out)
-        fc_out = fc.forward(pool2_out)
-        val_loss += sf.cal_loss(fc_out, np.array(label))
+        output = model(img)
 
         for j in range(batch_size):
-            if np.argmax(sf.softmax[j]) == label[j]:
+            if np.argmax(output[j]) == label[j]:
                 val_acc += 1
 
     print(time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()) + "  epoch: %5d , val_acc: %.4f  avg_val_loss: %.4f" % (

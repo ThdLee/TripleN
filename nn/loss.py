@@ -3,11 +3,8 @@ from nn.module import Module
 
 
 class CrossEntropyLoss(Module):
-    def __init__(self, shape):
+    def __init__(self):
         super(CrossEntropyLoss, self).__init__()
-        self.softmax = np.zeros(shape)
-        self.eta = np.zeros(shape)
-        self.batch_size = shape[0]
 
     def forward(self, input, target):
         batch_size = input.shape[0]
