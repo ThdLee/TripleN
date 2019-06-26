@@ -1,4 +1,6 @@
-data/
-__pycache__/
+data/mnist/t10k-images.idx3-ubyte
+data/mnist/t10k-labels.idx1-ubyte
+data/mnist/train-images.idx3-ubyte
+data/mnist/train-labels.idx1-ubyte
 logs/
-.idea/
+__pycache__/
