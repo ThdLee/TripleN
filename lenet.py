@@ -12,8 +12,8 @@ from data_utils import MNISTDataset
 from tqdm import tqdm
 
 batch_size = 64
-epochs = 20
-learning_rate = 1e-3
+epochs = 10
+learning_rate = 1e-2
 weight_decay = 0
 
 train_dataset = MNISTDataset('./data/mnist', batch_size=batch_size, shuffle=True)
@@ -47,8 +47,7 @@ class Lenet(Module):
 model = Lenet()
 
 criterion = CrossEntropyLoss()
-optimizer = Adam(model.parameters(), learning_rate, weight_decay=weight_decay)
-
+optimizer = SGD(model.parameters(), learning_rate, weight_decay=weight_decay)
 
 for epoch in range(epochs):
 
@@ -72,7 +71,7 @@ for epoch in range(epochs):
         train_loss += loss / len(labels)
 
     print("Time: {} Epoch: {} Train Acc: {:.2f} Train Loss: {:.4f}".
-          format(epoch, time.strftime("%H:%M:%S"), train_acc / train_dataset.data_len * 100.0, train_loss / len(train_dataset)))
+          format(time.strftime("%H:%M:%S"), epoch, train_acc * 100.0 / train_dataset.data_len, train_loss / len(train_dataset)))
 
     model.eval()
     # validation
@@ -85,5 +84,5 @@ for epoch in range(epochs):
         val_loss += loss / len(labels)
 
     print("Time: {} Epoch: {} Val Acc: {:.2f} Val Loss: {:.4f}".
-          format(epoch, time.strftime("%H:%M:%S"), val_acc / test_dataset.data_len * 100.0, val_loss / len(test_dataset)))
+          format(epoch, time.strftime("%H:%M:%S"), val_acc * 100.0 / test_dataset.data_len, val_loss / len(test_dataset)))
 

@@ -43,7 +43,7 @@ class Adam(Optimizer):
                 state['step'] += 1
 
                 if self.weight_decay != 0:
-                    p.grad.data += self.weight_decay * p.data
+                    p.grad += self.weight_decay * p.data
 
                 # Decay the first and second moment running average coefficient
                 exp_avg = self.beta1 * exp_avg + (1 - self.beta1) * p.grad

@@ -23,9 +23,15 @@ class SGD(Optimizer):
             for p in group['params']:
                 if p.grad is None:
                     continue
-                p.grad.data += self.weight_decay * p.data
+
+                state = self.state[p]
+
+                if len(state) == 0:
+                    state['mtmp'] = np.zeros(p.grad.shape)
+
+                p.grad += self.weight_decay * p.data
+
                 if self.momentum != 0:
-                    if self.mtmp is None:
-                        self.mtmp = np.zeros(p.grad.shape)
-                    p.grad = self.mtmp * self.momentum + p.grad
+                    state['mtmp'] = state['mtmp'] * self.momentum + p.grad
+                    p.grad = state['mtmp']
                 p.data -= self.lr * p.grad

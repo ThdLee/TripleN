@@ -22,6 +22,7 @@ class CrossEntropyLoss(Module):
 
         for i in range(batch_size):
             grad[i, target[i]] -= 1
+
         return loss, grad
 
     def backward(self):
