@@ -50,6 +50,9 @@ class Adam(Optimizer):
                 exp_avg_sq = self.beta2 * exp_avg_sq + (1 - self.beta2) * p.grad * p.grad
                 denom = np.sqrt(exp_avg_sq) + self.eps
 
+                state['exp_avg'] = exp_avg
+                state['exp_avg_sq'] = exp_avg_sq
+
                 bias_correction1 = 1 - self.beta1 ** state['step']
                 bias_correction2 = 1 - self.beta2 ** state['step']
                 step_size = self.lr * math.sqrt(bias_correction2) / bias_correction1
