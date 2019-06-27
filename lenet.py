@@ -66,7 +66,7 @@ for epoch in range(epochs):
         train_acc += (np.argmax(output, axis=1) == labels).sum()
 
         model.backward(grad)
-        optimizer.step()
+        optimizer.step(len(labels))
 
         train_loss += loss / len(labels)
 
