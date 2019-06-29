@@ -31,16 +31,16 @@ class MaxPooling2D(Module):
 
     def forward(self, x):
         input_shape = x.shape
-        output_shape = (x.shape[0], (x.shape[1] - self.kernel_size) // self.stride + 1,
+        view_shape = (x.shape[0], (x.shape[1] - self.kernel_size) // self.stride + 1,
                         (x.shape[2] - self.kernel_size) // self.stride + 1, x.shape[3])
-        output = as_strided(x, shape=output_shape + (self.kernel_size, self.kernel_size),
+        output = as_strided(x, shape=view_shape + (self.kernel_size, self.kernel_size),
                             strides=(x.strides[0], self.stride * x.strides[1],
                                      self.stride * x.strides[2], x.strides[3]) + x.strides[1:3])
         output = output.reshape(-1, self.kernel_size * self.kernel_size)
         self.index = np.zeros(output.shape)
         self.index[np.arange(self.index.shape[0]), output.argmax(axis=1)] = 1
         self.index = self.index.reshape(input_shape)
-        output = output.max(axis=1).reshape(output_shape)
+        output = output.max(axis=1).reshape(view_shape)
         return output
 
     def backward(self, grad_output):
