@@ -2,7 +2,6 @@ import numpy as np
 import struct
 import math
 from glob import glob
-import matplotlib.pyplot as plt
 
 
 def load_mnist(path, kind='train'):
@@ -17,7 +16,7 @@ def load_mnist(path, kind='train'):
     with open(images_path, 'rb') as imgpath:
         struct.unpack('>IIII', imgpath.read(16))
         images = np.fromfile(imgpath, dtype=np.uint8).reshape(len(labels), 28, 28, 1)
-        images = images / 255
+        images = ((images / 255) - 0.5) / 0.5
     return images, labels
 
 

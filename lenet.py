@@ -1,7 +1,7 @@
 import numpy as np
 from nn.conv import Conv2D
 from nn.linear import Linear
-from nn.pooling import MaxPooling, AvgPooling
+from nn.pooling import MaxPooling2D, AvgPooling2D
 from nn.loss import CrossEntropyLoss
 from nn.activation import Relu
 from nn.module import Module
@@ -26,10 +26,10 @@ class Lenet(Module):
 
         self.conv1 = Conv2D(1, 12, 5)
         self.relu1 = Relu()
-        self.pool1 = MaxPooling(ksize=2)
+        self.pool1 = MaxPooling2D(kernel_size=2)
         self.conv2 = Conv2D(12, 12, 3)
         self.relu2 = Relu()
-        self.pool2 = MaxPooling(ksize=2)
+        self.pool2 = MaxPooling2D(kernel_size=2)
         self.fc = Linear(5 * 5 * 12, 10)
 
     def forward(self, input):
@@ -47,7 +47,7 @@ class Lenet(Module):
 model = Lenet()
 
 criterion = CrossEntropyLoss()
-optimizer = SGD(model.parameters(), learning_rate, weight_decay=weight_decay)
+optimizer = Adam(model.parameters(), learning_rate, weight_decay=weight_decay)
 
 for epoch in range(epochs):
 
