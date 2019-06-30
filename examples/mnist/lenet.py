@@ -5,12 +5,13 @@ import time
 from examples.mnist.data_utils import MNISTDataset
 from tqdm import tqdm
 
+
 np.random.seed(123)
 
 batch_size = 64
 epochs = 10
 learning_rate = 1e-3
-weight_decay = 0
+weight_decay = 1e-5
 
 train_dataset = MNISTDataset('./examples/mnist/data/mnist', batch_size=batch_size, shuffle=True)
 test_dataset = MNISTDataset('./examples/mnist/data/mnist', batch_size=None, kind='t10k', shuffle=False)

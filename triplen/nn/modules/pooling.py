@@ -1,5 +1,5 @@
 import numpy as np
-from triplen.nn.module import Module
+from triplen.nn.modules.module import Module
 from numpy.lib.stride_tricks import as_strided
 
 

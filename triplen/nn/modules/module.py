@@ -1,5 +1,6 @@
 from collections import OrderedDict
-from triplen.tensor import Tensor, Parameter
+from triplen import Tensor
+from triplen.nn.parameter import Parameter
 
 
 class Module(object):

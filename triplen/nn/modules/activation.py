@@ -1,6 +1,6 @@
 import numpy as np
-from triplen.nn.module import Module
-from triplen.tensor import Tensor
+from triplen.nn.modules.module import Module
+from triplen import Tensor
 
 
 class Relu(Module):
