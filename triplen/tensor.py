@@ -1,6 +1,6 @@
 import numpy as np
 from functools import reduce
-
+import torch.autograd.function
 
 def tensor(*args):
     return Tensor(np.random.randn(*args))
@@ -12,6 +12,7 @@ class Tensor(object):
             self.data = data.data
         else:
             self.data = data
+        np.array().view()
 
         if dtype is not None:
             self.dtype = dtype
@@ -20,8 +21,11 @@ class Tensor(object):
             self.dtype = data.dtype
 
         self._requires_grad = requires_grad
-        if self.requires_grad:
-            self.grad = np.zeros(data.shape, data.dtype)
+        self.grad = np.zeros(data.shape, data.dtype)
+
+        self.parents = []
+        self.children = []
+        self.grad_fn = None
 
     @property
     def requires_grad(self):
@@ -37,6 +41,9 @@ class Tensor(object):
     @property
     def shape(self):
         return self.data.shape
+
+    def is_leaf(self):
+        return len(self.parents) == 0
 
     def size(self, dim: int = None):
         assert dim < len(self.shape)

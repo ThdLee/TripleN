@@ -61,15 +61,3 @@ class Conv2D(Module):
         weights = np.flipud(np.fliplr(self.weight.data)).swapaxes(2, 3).reshape((-1, self.in_channels))
         next_grad = np.matmul(output.reshape(output.shape[:3] + (-1,)), weights)
         return next_grad
-
-
-def im2col(inputs, ksize, stride):
-    image_col = []
-    for i in range(0, inputs.shape[1] - ksize + 1, stride):
-        for j in range(0, inputs.shape[2] - ksize + 1, stride):
-            col = inputs[:, i:i + ksize, j:j + ksize, :].reshape([-1])
-            image_col.append(col)
-    image_col = np.array(image_col)
-    print(image_col.shape)
-
-    return image_col

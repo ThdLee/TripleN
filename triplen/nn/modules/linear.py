@@ -4,6 +4,8 @@ import numpy as np
 from .module import Module
 from triplen.nn.parameter import Parameter
 from .. import init
+import torch.nn as nn
+nn.CrossEntropyLoss
 
 
 class Linear(Module):
