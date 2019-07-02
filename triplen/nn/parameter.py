@@ -1,4 +1,4 @@
-from triplen import Tensor
+from triplen.tensor import Tensor
 
 
 class Parameter(Tensor):

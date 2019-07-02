@@ -6,17 +6,12 @@ def add(x, y):
     return output
 
 
-def subtract(x, y):
-    output = Subtract.apply(x, y)
-    return output
-
-
-def multiply(x, y):
+def mul(x, y):
     output = Multiply.apply(x, y)
     return output
 
 
-def divide(x, y):
+def div(x, y):
     output = Divide.apply(x, y)
     return output
 

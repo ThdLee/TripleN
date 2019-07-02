@@ -1,5 +1,5 @@
 import math
-from triplen import *
+from triplen.tensor import *
 
 
 def uniform_(tensor, a=0.0, b=1.0):

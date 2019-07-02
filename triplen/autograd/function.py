@@ -1,13 +1,12 @@
 import numpy as np
 from numpy.lib.stride_tricks import as_strided
-from triplen import Tensor
+from ..tensor import Tensor
 
 
 class _FunctionBase(object):
     @classmethod
     def apply(cls, *inputs):
         ctx = cls._backward_cls()
-
         _inputs = inputs
         input_vars = tuple(x for x in inputs if isinstance(x, Tensor))
         needs_input_grad = tuple(True if isinstance(x, Tensor) and x.requires_grad and x.grad_fn else False for x in inputs)
@@ -24,6 +23,7 @@ class _FunctionBase(object):
 
         ctx_tensor_input = (ctx, ) + _inputs
         tensor_output = cls.forward(*ctx_tensor_input)
+        tensor_output = Tensor(tensor_output)
         tensor_output.grad_fn = ctx
         return tensor_output
 
@@ -264,7 +264,7 @@ class cross_entropy_loss(Function):
         return np.sum(np.log(np.sum(exp_output, axis=1)) - input[np.arange(input.shape[0]), target])
 
     @staticmethod
-    def backward(ctx):
+    def backward(ctx, grad_output=None):
         exp_output, input, target = ctx.to_save
         grad = exp_output / np.sum(exp_output, axis=1, keepdims=True)
         grad[np.arange(input.shape[0]), target] -= 1
