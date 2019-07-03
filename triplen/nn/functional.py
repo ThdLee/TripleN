@@ -26,7 +26,7 @@ def view(x, shape):
     return output
 
 
-def maxpooling(x, kernel_size, stride):
+def max_pool2d(x, kernel_size, stride):
     return MaxPooling.apply(x, kernel_size, stride)
 
 

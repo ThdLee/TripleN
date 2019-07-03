@@ -15,24 +15,27 @@ learning_rate = 1e-3
 weight_decay = 1e-5
 
 train_dataset = MNISTDataset('./examples/mnist/data/mnist', batch_size=batch_size, shuffle=True)
-test_dataset = MNISTDataset('./examples/mnist/data/mnist', batch_size=None, kind='t10k', shuffle=False)
+test_dataset = MNISTDataset('./examples/mnist/data/mnist', batch_size=128, kind='t10k', shuffle=False)
 
 
 class Lenet(nn.Module):
     def __init__(self):
         super(Lenet, self).__init__()
 
-        self.conv1 = nn.Conv2D(1, 12, 5)
-        self.pool1 = nn.MaxPooling2D(kernel_size=2)
-        self.conv2 = nn.Conv2D(12, 12, 3)
-        self.pool2 = nn.MaxPooling2D(kernel_size=2)
-        self.fc = nn.Linear(5 * 5 * 12, 10)
+        self.conv1 = nn.Conv2D(1, 20, 5)
+        self.conv2 = nn.Conv2D(20, 50, 5)
+        self.fc1 = nn.Linear(4 * 4 * 50, 500)
+        self.fc2 = nn.Linear(500, 10)
 
-    def forward(self, input):
-        conv1_out = self.pool1(F.relu(self.conv1(input)))
-        conv2_out = self.pool2(F.relu(self.conv2(conv1_out)))
-        output = self.fc(conv2_out.view(conv2_out.shape[0], -1))
-        return output
+    def forward(self, x):
+        x = F.relu(self.conv1(x))
+        x = F.max_pool2d(x, 2, 2)
+        x = F.relu(self.conv2(x))
+        x = F.max_pool2d(x, 2, 2)
+        x = x.view(-1, 4*4*50)
+        x = F.relu(self.fc1(x))
+        x = self.fc2(x)
+        return x
 
 
 model = Lenet()

@@ -1,16 +1,16 @@
 import numpy as np
 from numpy.lib.stride_tricks import as_strided
-from triplen import Tensor
+import triplen
 
 
 class _FunctionBase(object):
     @classmethod
     def apply(cls, *inputs):
         ctx = cls._backward_cls()
-        _inputs = tuple(x.data if isinstance(x, Tensor) else x for x in inputs)
-        input_vars = tuple(x for x in inputs if isinstance(x, Tensor))
-        needs_input_grad = tuple(isinstance(x, Tensor) and x.requires_grad for x in inputs)
-        is_tensor_input = tuple(isinstance(x, Tensor) for x in inputs)
+        _inputs = tuple(x.data if isinstance(x, triplen.Tensor) else x for x in inputs)
+        input_vars = tuple(x for x in inputs if isinstance(x, triplen.Tensor))
+        needs_input_grad = tuple(isinstance(x, triplen.Tensor) and x.requires_grad for x in inputs)
+        is_tensor_input = tuple(isinstance(x, triplen.Tensor) for x in inputs)
         next_functions = [None] * len(input_vars)
         for i, var in enumerate(input_vars):
             if var.grad_fn is not None and var.requires_grad:
@@ -25,7 +25,7 @@ class _FunctionBase(object):
         tensor_output = cls.forward(*ctx_tensor_input)
         if not isinstance(tensor_output, np.ndarray):
             tensor_output = np.array(tensor_output)
-        tensor_output = Tensor(tensor_output)
+        tensor_output = triplen.Tensor(tensor_output)
         if True in [x.requires_grad for x in input_vars]:
             tensor_output.grad_fn = ctx
             tensor_output.requires_grad = True
@@ -42,6 +42,14 @@ class BackwardFunction(_FunctionBase, _ContextMethodMixin):
 
     def apply(self, *args):
         return self._forward_cls.backward(self, *args)
+
+
+class AccumulateGrad(_FunctionBase):
+    def __init__(self, tensor):
+        self.tensor = tensor
+
+    def apply(self, grad):
+        self.tensor.grad += grad
 
 
 class FunctionMeta(type):
