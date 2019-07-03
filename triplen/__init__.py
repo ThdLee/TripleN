@@ -1,6 +1,6 @@
 import numpy as np
 from functools import reduce
-
+import sys
 
 def tensor(*args):
     return Tensor(np.random.randn(*args))
@@ -50,13 +50,17 @@ class Tensor(object):
             if grad_fn is None:
                 continue
             outputs = grad_fn.apply(gradient)
+            if isinstance(grad_fn, AccumulateGrad):
+                continue
+            # print(sys.getrefcount(grad_fn))
             if isinstance(outputs, tuple):
                 assert len(outputs) == len(grad_fn.next_functions)
-                for func, grad in zip(self.grad_fn.next_functions, outputs):
+                for func, grad in zip(grad_fn.next_functions, outputs):
                     backward_stack.append((func, grad))
             else:
-                assert len(grad_fn.next_functions) == 1
-                backward_stack.append((grad_fn.next_functions[0], outputs))
+                # assert len([func for func in grad_fn.next_functions if func is not None]) == 1
+                for func in grad_fn.next_functions:
+                    backward_stack.append((func, outputs))
 
     def get_grad_accumulator(self):
         return AccumulateGrad(self)
@@ -126,6 +130,9 @@ class Tensor(object):
     def view(self, *args):
         from .nn.functional import view
         return view(self, args)
+
+    def __len__(self):
+        return len(self.data)
 
     def __add__(self, other):
         return self.add(other)

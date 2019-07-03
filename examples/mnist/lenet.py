@@ -1,4 +1,5 @@
 import numpy as np
+import triplen
 import triplen.nn as nn
 import triplen.nn.functional as F
 import triplen.optim as optim
@@ -47,13 +48,15 @@ for epoch in range(epochs):
     model.train()
 
     for images, labels in tqdm(train_dataset):
+        images = triplen.Tensor(images)
+        labels = triplen.Tensor(labels)
 
         optimizer.zero_grad()
 
         output = model(images)
         loss = criterion(output, labels)
 
-        train_acc += (np.argmax(output.data, axis=1) == labels).sum()
+        train_acc += (np.argmax(output.data, axis=1) == labels.data).sum()
 
         loss.backward()
         optimizer.step(len(labels))
@@ -66,11 +69,14 @@ for epoch in range(epochs):
     model.eval()
     # validation
     for images, labels in tqdm(test_dataset):
+        images = triplen.Tensor(images)
+        labels = triplen.Tensor(labels)
+
         output = model(images)
 
         loss = criterion(output, labels)
 
-        val_acc += (np.argmax(output.data, axis=1) == labels).sum()
+        val_acc += (np.argmax(output.data, axis=1) == labels.data).sum()
         val_loss += loss.item()
 
     print("Time: {} Epoch: {} Val Acc: {:.2f} Val Loss: {:.4f}".

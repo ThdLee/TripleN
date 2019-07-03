@@ -28,6 +28,7 @@ class _FunctionBase(object):
         tensor_output = Tensor(tensor_output)
         if True in [x.requires_grad for x in input_vars]:
             tensor_output.grad_fn = ctx
+            tensor_output.requires_grad = True
         return tensor_output
 
 
@@ -142,7 +143,7 @@ class Pow(Function):
 class View(Function):
     @staticmethod
     def forward(ctx, x, shape):
-        ctx.shape = shape
+        ctx.shape = x.shape
         return x.reshape(shape)
 
     @staticmethod
@@ -171,7 +172,7 @@ class MaxPooling(Function):
 
     @staticmethod
     def backward(ctx, grad_output):
-        index = ctx.to_save
+        index, = ctx.to_save
         stride = ctx.stride
         next_grad = np.repeat(np.repeat(grad_output, stride, axis=1), stride, axis=2) * index
         return next_grad
@@ -197,7 +198,7 @@ class Conv2D(Function):
 
     @staticmethod
     def backward(ctx, grad_output):
-        col_img, weight, bias = ctx.to_save()
+        col_img, weight, bias = ctx.to_save
         padding, stride = ctx.padding, ctx.stride
         kernel_size, in_channels, out_channels = weight.shape[0], weight.shape[-2], weight.shape[-1]
 
@@ -238,8 +239,9 @@ class Linear(Function):
     def backward(ctx, grad_output):
         input, weight = ctx.to_save
         input_shape = ctx.input_shape
-        grad = grad_output[:, np.newaxis, :]
-        grad_weight = np.matmul(input.T, grad)
+        grad_output = grad_output.reshape((-1, grad_output.shape[-1]))
+
+        grad_weight = np.matmul(input.T, grad_output)
         grad_bias = grad_output.sum(axis=0)
 
         next_grad = np.matmul(grad_output, weight.T)
@@ -255,7 +257,7 @@ class Relu(Function):
 
     @staticmethod
     def backward(ctx, grad_output):
-        x = ctx.to_save
+        x, = ctx.to_save
         grad_output[x < 0] = 0
         return grad_output
 
