@@ -7,15 +7,15 @@ class _FunctionBase(object):
     @classmethod
     def apply(cls, *inputs):
         ctx = cls._backward_cls()
-        _inputs = inputs
+        _inputs = tuple(x.data if isinstance(x, Tensor) else x for x in inputs)
         input_vars = tuple(x for x in inputs if isinstance(x, Tensor))
-        needs_input_grad = tuple(True if isinstance(x, Tensor) and x.requires_grad and x.grad_fn else False for x in inputs)
-        is_tensor_input = tuple(True if isinstance(x, Tensor) else False for x in inputs)
+        needs_input_grad = tuple(isinstance(x, Tensor) and x.requires_grad for x in inputs)
+        is_tensor_input = tuple(isinstance(x, Tensor) for x in inputs)
         next_functions = [None] * len(input_vars)
         for i, var in enumerate(input_vars):
-            if var.grad_fn is not None:
+            if var.grad_fn is not None and var.requires_grad:
                 next_functions[i] = var.grad_fn
-            else:
+            elif var.requires_grad:
                 next_functions[i] = var.get_grad_accumulator()
         ctx.next_functions = tuple(next_functions)
         ctx.needs_input_grad = needs_input_grad
@@ -24,7 +24,8 @@ class _FunctionBase(object):
         ctx_tensor_input = (ctx, ) + _inputs
         tensor_output = cls.forward(*ctx_tensor_input)
         tensor_output = Tensor(tensor_output)
-        tensor_output.grad_fn = ctx
+        if True in [x.requires_grad for x in input_vars]:
+            tensor_output.grad_fn = ctx
         return tensor_output
 
 

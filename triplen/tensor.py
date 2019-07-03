@@ -14,9 +14,11 @@ class AccumulateGrad(object):
         self.tensor.grad += grad
 
 
-def _variable_check(data):
-    if isinstance(data, float) or isinstance(data, int) or isinstance(data, Tensor):
-        return
+def _tensor_wrapper(data):
+    if isinstance(data, float) or isinstance(data, int):
+        return Tensor(data)
+    elif isinstance(data, Tensor):
+        return data
     else:
         raise TypeError('float, int, tensor')
 
@@ -101,34 +103,29 @@ class Tensor(object):
 
     def add(self, other):
         from .nn.functional import add
-        _variable_check(other)
-        return add(self, other)
+        return add(self, _tensor_wrapper(other))
 
     def mul(self, other):
         from .nn.functional import mul
-        _variable_check(other)
-        return mul(self, other)
+        return mul(self, _tensor_wrapper(other))
 
     def div(self, other):
         from .nn.functional import div
-        _variable_check(other)
-        return div(self, other)
+        return div(self, _tensor_wrapper(other))
 
     def pow(self, other):
         from .nn.functional import pow
-        _variable_check(other)
-        return pow(self, other)
+        return pow(self, _tensor_wrapper(other))
 
     def view(self, *args):
         from .nn.functional import view
         return view(self, args)
 
     def __add__(self, other):
-        _variable_check(other)
-        if isinstance(other, Tensor):
-            return self.data + other.data
-        else:
-            return self.data + other
+        return self.add(other)
+
+    def __radd__(self, other):
+        return self.add(other)
 
 
 def numel(shape):
