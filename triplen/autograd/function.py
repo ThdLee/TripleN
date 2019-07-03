@@ -1,6 +1,6 @@
 import numpy as np
 from numpy.lib.stride_tricks import as_strided
-from ..tensor import Tensor
+from triplen import Tensor
 
 
 class _FunctionBase(object):
@@ -23,6 +23,8 @@ class _FunctionBase(object):
 
         ctx_tensor_input = (ctx, ) + _inputs
         tensor_output = cls.forward(*ctx_tensor_input)
+        if not isinstance(tensor_output, np.ndarray):
+            tensor_output = np.array(tensor_output)
         tensor_output = Tensor(tensor_output)
         if True in [x.requires_grad for x in input_vars]:
             tensor_output.grad_fn = ctx
@@ -83,7 +85,7 @@ class Add(Function):
         return grad_x, grad_y
 
 
-class Subtract(Function):
+class Sub(Function):
     @staticmethod
     def forward(ctx, x, y):
         return x - y
@@ -95,7 +97,7 @@ class Subtract(Function):
         return grad_x, grad_y
 
 
-class Multiply(Function):
+class Mul(Function):
     @staticmethod
     def forward(ctx, x, y):
         ctx.save_for_backward(x, y)
@@ -109,7 +111,7 @@ class Multiply(Function):
         return grad_x, grad_y
 
 
-class Divide(Function):
+class Div(Function):
     @staticmethod
     def forward(ctx, x, y):
         ctx.save_for_backward(x, y)
@@ -171,7 +173,8 @@ class MaxPooling(Function):
     def backward(ctx, grad_output):
         index = ctx.to_save
         stride = ctx.stride
-        return np.repeat(np.repeat(grad_output, stride, axis=1), stride, axis=2) * index
+        next_grad = np.repeat(np.repeat(grad_output, stride, axis=1), stride, axis=2) * index
+        return next_grad
 
 
 class Conv2D(Function):
@@ -189,7 +192,7 @@ class Conv2D(Function):
         ctx.stride = stride
         ctx.save_for_backward(col_img, weight, bias)
         output = np.matmul(output.reshape(output.shape[:3] + (-1,)),
-                           weight.data.reshape((-1, out_channels))) + bias.data
+                           weight.reshape((-1, out_channels))) + bias
         return output
 
     @staticmethod
@@ -214,33 +217,33 @@ class Conv2D(Function):
         output = as_strided(pad_grad, shape=view_shape + (kernel_size, kernel_size),
                             strides=(pad_grad.strides[0], stride * pad_grad.strides[1],
                                      stride * pad_grad.strides[2], pad_grad.strides[3]) + pad_grad.strides[1:3])
-        weights = np.flipud(np.fliplr(weight.data)).swapaxes(2, 3).reshape((-1, in_channels))
+        weights = np.flipud(np.fliplr(weight)).swapaxes(2, 3).reshape((-1, in_channels))
         next_grad = np.matmul(output.reshape(output.shape[:3] + (-1,)), weights)
         return next_grad, grad_weight, grad_bias
 
 
 class Linear(Function):
     @staticmethod
-    def forward(ctx, x, weight, bias):
-        assert x.shape[-1] == weight.shape[0]
-        batch_size = x.shape[0]
+    def forward(ctx, input, weight, bias):
+        assert input.shape[-1] == weight.shape[0]
+        batch_size = input.shape[0]
         output_size = weight.shape[-1]
-        ctx.save_for_backward(x, weight)
-        ctx.shape = x.shape
-        output = np.matmul(x.reshape(batch_size, -1), weight.data) + bias.data
-        return output.reshape((batch_size, output_size))
+        ctx.input_shape = input.shape
+        input = input.reshape(batch_size, -1)
+        ctx.save_for_backward(input, weight)
+        output = np.matmul(input, weight) + bias
+        return output.reshape(input.shape[:-1] + (output_size,))
 
     @staticmethod
     def backward(ctx, grad_output):
-        x, weight = ctx.to_save
-        shape = ctx.shape
-        col_x = x[:, :, np.newaxis]
+        input, weight = ctx.to_save
+        input_shape = ctx.input_shape
         grad = grad_output[:, np.newaxis, :]
-        grad_weight = np.matmul(col_x, grad).sum(axis=0)
+        grad_weight = np.matmul(input.T, grad)
         grad_bias = grad_output.sum(axis=0)
 
-        next_grad = np.dot(grad_output, weight.data.T)
-        next_grad = next_grad.reshape(shape)
+        next_grad = np.matmul(grad_output, weight.T)
+        next_grad = next_grad.reshape(input_shape)
         return next_grad, grad_weight, grad_bias
 
 
@@ -257,16 +260,16 @@ class Relu(Function):
         return grad_output
 
 
-class cross_entropy_loss(Function):
+class CrossEntropyLoss(Function):
     @staticmethod
     def forward(ctx, input, target):
         exp_output = np.exp(input)
         ctx.save_for_backward(exp_output, input, target)
-        return np.sum(np.log(np.sum(exp_output, axis=1)) - input[np.arange(input.shape[0]), target])
+        return np.mean(np.log(np.sum(exp_output, axis=1)) - input[np.arange(input.shape[0]), target])
 
     @staticmethod
     def backward(ctx, grad_output=None):
         exp_output, input, target = ctx.to_save
-        grad = exp_output / np.sum(exp_output, axis=1, keepdims=True)
-        grad[np.arange(input.shape[0]), target] -= 1
-        return grad
+        next_grad = exp_output / np.sum(exp_output, axis=1, keepdims=True)
+        next_grad[np.arange(input.shape[0]), target] -= 1
+        return next_grad

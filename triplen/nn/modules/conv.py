@@ -1,10 +1,9 @@
 import math
 import triplen
-import numpy as np
 from triplen.nn.parameter import Parameter
 from triplen.nn.modules.module import Module
 from .. import init
-from numpy.lib.stride_tricks import as_strided
+from .. import functional as F
 
 
 class Conv2D(Module):
@@ -27,37 +26,6 @@ class Conv2D(Module):
             bound = 1 / math.sqrt(fan_in)
             init.uniform_(self.bias, -bound, bound)
 
-    def forward(self, x):
-        x = np.pad(x, ((0, 0), (self.padding, self.padding),
-                       (self.padding, self.padding), (0, 0)),
-                   'constant', constant_values=0)
-        view_shape = (x.shape[0], (x.shape[1] - self.kernel_size) // self.stride + 1,
-                      (x.shape[2] - self.kernel_size) // self.stride + 1, x.shape[3])
-        output = as_strided(x, shape=view_shape + (self.kernel_size, self.kernel_size),
-                            strides=(x.strides[0], self.stride * x.strides[1],
-                                     self.stride * x.strides[2], x.strides[3]) + x.strides[1:3])
-        self.col_img = output.reshape((output.shape[0], -1, (self.kernel_size ** 2) * self.in_channels))
-        output = np.matmul(output.reshape(output.shape[:3] + (-1,)),
-                           self.weight.data.reshape((-1, self.out_channels))) + self.bias.data
-        return output
+    def forward(self, input):
+        return F.conv2d(input, self.weight, self.bias, self.stride, self.padding)
 
-    def backward(self, grad_output):
-        col_grad_output = grad_output.reshape((grad_output.shape[0], -1, self.out_channels))
-
-        self.weight.grad += np.matmul(self.col_img.swapaxes(1, 2),
-                                      col_grad_output).sum(axis=0).reshape(self.weight.shape)
-        self.bias.grad += np.sum(col_grad_output, axis=(0, 1))
-
-        pad_grad = np.pad(grad_output, ((0, 0),
-                                        (self.kernel_size - 1 - self.padding, self.kernel_size - 1 - self.padding),
-                                        (self.kernel_size - 1 - self.padding, self.kernel_size - 1 - self.padding),
-                                        (0, 0)), 'constant', constant_values=0)
-
-        view_shape = (pad_grad.shape[0], (pad_grad.shape[1] - self.kernel_size) // self.stride + 1,
-                      (pad_grad.shape[2] - self.kernel_size) // self.stride + 1, pad_grad.shape[3])
-        output = as_strided(pad_grad, shape=view_shape + (self.kernel_size, self.kernel_size),
-                            strides=(pad_grad.strides[0], self.stride * pad_grad.strides[1],
-                                     self.stride * pad_grad.strides[2], pad_grad.strides[3]) + pad_grad.strides[1:3])
-        weights = np.flipud(np.fliplr(self.weight.data)).swapaxes(2, 3).reshape((-1, self.in_channels))
-        next_grad = np.matmul(output.reshape(output.shape[:3] + (-1,)), weights)
-        return next_grad

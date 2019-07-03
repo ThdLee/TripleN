@@ -1,4 +1,4 @@
-from triplen.tensor import Tensor
+from triplen import Tensor
 
 
 class Optimizer(object):

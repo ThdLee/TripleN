@@ -7,12 +7,12 @@ def add(x, y):
 
 
 def mul(x, y):
-    output = Multiply.apply(x, y)
+    output = Mul.apply(x, y)
     return output
 
 
 def div(x, y):
-    output = Divide.apply(x, y)
+    output = Div.apply(x, y)
     return output
 
 
@@ -40,3 +40,7 @@ def relu(x):
 
 def linear(x, weight, bias):
     return Linear.apply(x, weight, bias)
+
+
+def cross_entropy_loss(input, target):
+    return CrossEntropyLoss.apply(input, target)

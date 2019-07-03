@@ -1,6 +1,6 @@
 from collections import OrderedDict
 from ..parameter import Parameter
-from triplen.tensor import Tensor
+from triplen import Tensor
 
 
 class Module(object):
@@ -14,9 +14,6 @@ class Module(object):
         return self.forward(*input)
 
     def forward(self, *input):
-        raise NotImplementedError
-
-    def backward(self, *grad):
         raise NotImplementedError
 
     def register_buffer(self, name, tensor):
