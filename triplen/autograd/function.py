@@ -247,7 +247,6 @@ class Linear(Function):
     def backward(ctx, grad_output):
         input, weight = ctx.to_save
         input_shape = ctx.input_shape
-        grad_output = grad_output.reshape((-1, grad_output.shape[-1]))
 
         grad_weight = np.matmul(input.T, grad_output)
         grad_bias = grad_output.sum(axis=0)
@@ -268,6 +267,22 @@ class Relu(Function):
         x, = ctx.to_save
         grad_output[x < 0] = 0
         return grad_output
+
+
+class Dropout(Function):
+    @staticmethod
+    def forward(ctx, x, prob, training):
+        if training:
+            drop = np.random.binomial(1, 1 - prob, x.shape)
+        else:
+            drop = np.ones(x.shape)
+        ctx.save_for_backward(drop)
+        return drop * x
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        drop, = ctx.to_save
+        return drop * grad_output
 
 
 class CrossEntropyLoss(Function):

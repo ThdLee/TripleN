@@ -34,6 +34,10 @@ def conv2d(x, weight, bias, stride, padding):
     return Conv2D.apply(x, weight, bias, stride, padding)
 
 
+def dropout(x, prob, training):
+    return Dropout.apply(x, prob, training)
+
+
 def relu(x):
     return Relu.apply(x)
 

@@ -22,13 +22,12 @@ class Adam(Optimizer):
 
         super(Adam, self).__init__(params)
 
-    def step(self, batch_size):
+    def step(self):
         for group in self.param_groups:
             for p in group['params']:
                 if p.grad is None:
                     continue
 
-                p.grad = p.grad / batch_size
                 state = self.state[p]
 
                 # State initialization

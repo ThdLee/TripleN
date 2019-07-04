@@ -33,7 +33,7 @@ class Optimizer(object):
                 if p.grad is not None:
                     p.grad = 0
 
-    def step(self, batch_size):
+    def step(self):
         raise NotImplementedError
 
     def add_param_group(self, param_group):

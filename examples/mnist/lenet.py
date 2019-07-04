@@ -12,7 +12,6 @@ np.random.seed(123)
 batch_size = 64
 epochs = 10
 learning_rate = 1e-3
-weight_decay = 1e-5
 
 train_dataset = MNISTDataset('./examples/mnist/data/mnist', batch_size=batch_size, shuffle=True)
 test_dataset = MNISTDataset('./examples/mnist/data/mnist', batch_size=128, kind='t10k', shuffle=False)
@@ -26,14 +25,15 @@ class Lenet(nn.Module):
         self.conv2 = nn.Conv2D(20, 50, 5)
         self.fc1 = nn.Linear(4 * 4 * 50, 500)
         self.fc2 = nn.Linear(500, 10)
+        self.dropout = nn.Dropout(0.5)
 
     def forward(self, x):
         x = F.relu(self.conv1(x))
         x = F.max_pool2d(x, 2, 2)
         x = F.relu(self.conv2(x))
         x = F.max_pool2d(x, 2, 2)
-        x = x.view(-1, 4*4*50)
-        x = F.relu(self.fc1(x))
+        x = x.view(x.size(0), -1)
+        x = self.dropout(self.fc1(x))
         x = self.fc2(x)
         return x
 
@@ -41,7 +41,7 @@ class Lenet(nn.Module):
 model = Lenet()
 
 criterion = nn.CrossEntropyLoss()
-optimizer = optim.Adam(model.parameters(), learning_rate, weight_decay=weight_decay)
+optimizer = optim.Adam(model.parameters(), learning_rate)
 
 for epoch in range(epochs):
 
@@ -59,10 +59,10 @@ for epoch in range(epochs):
         output = model(images)
         loss = criterion(output, labels)
 
-        train_acc += (np.argmax(output.data, axis=1) == labels.data).sum()
+        train_acc += (np.argmax(output.numpy(), axis=1) == labels.numpy()).sum()
 
         loss.backward()
-        optimizer.step(len(labels))
+        optimizer.step()
 
         train_loss += loss.item()
 
@@ -79,7 +79,7 @@ for epoch in range(epochs):
 
         loss = criterion(output, labels)
 
-        val_acc += (np.argmax(output.data, axis=1) == labels.data).sum()
+        val_acc += (np.argmax(output.numpy(), axis=1) == labels.numpy()).sum()
         val_loss += loss.item()
 
     print("Time: {} Epoch: {} Val Acc: {:.2f} Val Loss: {:.4f}".

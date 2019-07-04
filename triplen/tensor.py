@@ -1,7 +1,7 @@
 import numpy as np
 from functools import reduce
-import triplen
 from triplen.autograd.function import *
+
 
 def _tensor_wrapper(data):
     if isinstance(data, float) or isinstance(data, int):
@@ -79,6 +79,9 @@ class Tensor(object):
 
     def numel(self):
         return reduce(lambda x, y: x * y, self.shape)
+
+    def numpy(self):
+        return self.data
 
     def uniform_(self, a=0.0, b=1.0):
         self.data = np.random.uniform(a, b, self.shape)
