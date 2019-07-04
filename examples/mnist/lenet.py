@@ -4,7 +4,7 @@ import triplen.nn as nn
 import triplen.nn.functional as F
 import triplen.optim as optim
 import time
-from examples.mnist.data_utils import MNISTDataset
+from data_utils import MNISTDataset
 from tqdm import tqdm
 
 np.random.seed(123)
@@ -13,18 +13,18 @@ batch_size = 64
 epochs = 10
 learning_rate = 1e-3
 
-train_dataset = MNISTDataset('./examples/mnist/data/mnist', batch_size=batch_size, shuffle=True)
-test_dataset = MNISTDataset('./examples/mnist/data/mnist', batch_size=128, kind='t10k', shuffle=False)
+train_dataset = MNISTDataset('./data/mnist', batch_size=batch_size, shuffle=True)
+test_dataset = MNISTDataset('./data/mnist', batch_size=128, kind='t10k', shuffle=False)
 
 
 class Lenet(nn.Module):
     def __init__(self):
         super(Lenet, self).__init__()
 
-        self.conv1 = nn.Conv2D(1, 20, 5)
-        self.conv2 = nn.Conv2D(20, 50, 5)
-        self.fc1 = nn.Linear(4 * 4 * 50, 500)
-        self.fc2 = nn.Linear(500, 10)
+        self.conv1 = nn.Conv2D(1, 16, 5)
+        self.conv2 = nn.Conv2D(16, 32, 3)
+        self.fc1 = nn.Linear(5 * 5 * 32, 200)
+        self.fc2 = nn.Linear(200, 10)
         self.dropout = nn.Dropout(0.5)
 
     def forward(self, x):
@@ -83,5 +83,5 @@ for epoch in range(epochs):
         val_loss += loss.item()
 
     print("Time: {} Epoch: {} Val Acc: {:.2f} Val Loss: {:.4f}".
-          format(epoch, time.strftime("%H:%M:%S"), val_acc * 100.0 / test_dataset.data_len, val_loss / len(test_dataset)))
+          format(time.strftime("%H:%M:%S"), epoch, val_acc * 100.0 / test_dataset.data_len, val_loss / len(test_dataset)))
 
