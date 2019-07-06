@@ -15,7 +15,7 @@ def _tensor_wrapper(data):
 
 
 class Tensor(object):
-    def __init__(self, data, dtype: str = np.float, requires_grad: bool = False):
+    def __init__(self, data, dtype: str = None, requires_grad: bool = False):
         if isinstance(data, Tensor):
             self.data = data.data
         elif isinstance(data, list) or isinstance(data, tuple):
@@ -25,15 +25,34 @@ class Tensor(object):
         else:
             raise TypeError('list, tuple, np.ndarray, Tensor')
 
+        if requires_grad and dtype not in [np.float, np.float16, np.float32, np.float64]:
+            raise RuntimeError('Only Tensor of floating point dtype can require gradients')
+
         if dtype is not None:
             self.data.astype(dtype)
+        else:
+            self.data.astype(np.float)
 
-        self.requires_grad = requires_grad
+        self._requires_grad = requires_grad
         self._grad = None
         self.grad_fn = None
 
+    @property
+    def requires_grad(self):
+        return self._requires_grad
+
+    @requires_grad.getter
+    def requires_grad(self):
+        return self._requires_grad
+
+    @requires_grad.setter
+    def requires_grad(self, requires_grad):
+        if requires_grad and self.dtype not in [np.float, np.float16, np.float32, np.float64]:
+            raise RuntimeError('only Tensors of floating point dtype can require gradients')
+        self._requires_grad = requires_grad
+
     def backward(self, gradient=None):
-        if not self.requires_grad:
+        if not self._requires_grad:
             return
         triplen.autograd.backward(self, gradient)
 
@@ -50,6 +69,7 @@ class Tensor(object):
             self._grad = np.zeros(self.shape)
         return self._grad
 
+    @grad.setter
     def grad(self, grad):
         self._grad = grad
 
@@ -148,5 +168,22 @@ class Tensor(object):
     def __rpow__(self, other):
         return _tensor_wrapper(other).pow(self)
 
-
+    def __getitem__(self, *args):
+        if len(args) > self.ndim():
+            raise IndexError("too many indices for array")
+        index_num = -1
+        for arg in args:
+            if isinstance(arg, list):
+                if index_num >= 0 and index_num != len(arg):
+                    raise IndexError("index mismatch")
+                index_num = len(arg)
+            elif isinstance(arg, slice) or isinstance(arg, int):
+                pass
+            else:
+                raise ValueError("only integers, slices (`:`), ellipsis (`...`), numpy.newaxis (`None`)"
+                                 " and integer or boolean arrays are valid indices")
+        if index_num >= 0:
+            return Index.apply(index_num, *args)
+        else:
+            return Select.apply(*args)
 

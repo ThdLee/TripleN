@@ -13,8 +13,8 @@ batch_size = 64
 epochs = 10
 learning_rate = 1e-3
 
-train_dataset = MNISTDataset('./data/mnist', batch_size=batch_size, shuffle=True)
-test_dataset = MNISTDataset('./data/mnist', batch_size=128, kind='t10k', shuffle=False)
+train_dataset = MNISTDataset('./examples/mnist/data/mnist', batch_size=batch_size, shuffle=True)
+test_dataset = MNISTDataset('./examples/mnist/data/mnist', batch_size=128, kind='t10k', shuffle=False)
 
 
 class Lenet(nn.Module):

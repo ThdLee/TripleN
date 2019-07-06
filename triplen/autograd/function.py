@@ -9,13 +9,13 @@ class _FunctionBase(object):
         ctx = cls._backward_cls()
         _inputs = tuple(x.data if isinstance(x, triplen.Tensor) else x for x in inputs)
         input_vars = tuple(x for x in inputs if isinstance(x, triplen.Tensor))
-        needs_input_grad = tuple(isinstance(x, triplen.Tensor) and x.requires_grad for x in inputs)
+        needs_input_grad = tuple(isinstance(x, triplen.Tensor) and x._requires_grad for x in inputs)
         is_tensor_input = tuple(isinstance(x, triplen.Tensor) for x in inputs)
         next_functions = [None] * len(input_vars)
         for i, var in enumerate(input_vars):
-            if var.grad_fn is not None and var.requires_grad:
+            if var.grad_fn is not None and var._requires_grad:
                 next_functions[i] = var.grad_fn
-            elif var.requires_grad:
+            elif var._requires_grad:
                 next_functions[i] = var.get_grad_accumulator()
         ctx.next_functions = tuple(next_functions)
         ctx.needs_input_grad = needs_input_grad
@@ -26,9 +26,9 @@ class _FunctionBase(object):
         if not isinstance(tensor_output, np.ndarray):
             tensor_output = np.array(tensor_output)
         tensor_output = triplen.Tensor(tensor_output)
-        if True in [x.requires_grad for x in input_vars]:
+        if True in [x._requires_grad for x in input_vars]:
             tensor_output.grad_fn = ctx
-            tensor_output.requires_grad = True
+            tensor_output._requires_grad = True
         return tensor_output
 
 
@@ -158,6 +158,44 @@ class View(Function):
     def backward(ctx, grad_output):
         shape = ctx.shape
         return grad_output.reshape(shape)
+
+
+class Index(Function):
+    @staticmethod
+    def forward(ctx, x, index_num, *args):
+        output = x[args]
+        ctx.shape = x.shape
+        ctx.args = args
+        ctx.index_num = index_num
+        return output
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        shape = ctx.shape
+        args = ctx.args
+        index_num = ctx.index_num
+        next_grad = np.zeros(shape)
+        for i in range(index_num):
+            grad_args = tuple([arg[i] if isinstance(arg, list) else arg for arg in args])
+            next_grad[grad_args] += grad_output[i]
+        return next_grad
+
+
+class Select(Function):
+    @staticmethod
+    def forward(ctx, x, *args):
+        output = x[args]
+        ctx.shape = x.shape
+        ctx.args = args
+        return output
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        shape = ctx.shape
+        args = ctx.args
+        next_grad = np.ones(shape)
+        next_grad[args] = grad_output
+        return next_grad
 
 
 class MaxPooling(Function):
