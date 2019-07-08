@@ -3,7 +3,6 @@ from .tensor import Tensor
 import triplen.nn
 import triplen.optim
 import triplen.autograd
-from functools import reduce
 
 __all__ = ['tensor', 'Tensor']
 
@@ -31,6 +30,3 @@ def randn(*size, dtype=None, requires_grad=False):
 def arange(start, stop, step, dtype=None, requires_grad=False):
     return Tensor(np.arange(start, stop, step, dtype), dtype=dtype, requires_grad=requires_grad)
 
-
-def numel(shape):
-    return reduce(lambda x, y: x * y, shape)

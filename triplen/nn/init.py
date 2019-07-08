@@ -1,5 +1,5 @@
 import math
-import triplen
+from functools import reduce
 from triplen import Tensor
 
 
@@ -57,7 +57,7 @@ def _calculate_fan_in_and_fan_out(tensor: Tensor):
         num_output_fmaps = tensor.size(-2)
         receptive_field_size = 1
         if tensor.ndim() > 2:
-            receptive_field_size = triplen.numel(tensor.shape[:-2])
+            receptive_field_size = reduce(lambda x, y: x * y, tensor.shape[:-2])
         fan_in = num_input_fmaps * receptive_field_size
         fan_out = num_output_fmaps * receptive_field_size
 

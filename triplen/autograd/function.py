@@ -148,6 +148,22 @@ class Pow(Function):
         return grad_x, grad_y
 
 
+class MatMul(Function):
+    @staticmethod
+    def forward(ctx, x, y):
+        assert x.shape[-1] == y.shape[0]
+        ctx.save_for_backward(x, y)
+        output = np.matmul(x, y)
+        return output
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        x, y = ctx.to_save
+        grad_y = np.matmul(x.T, grad_output)
+        grad_x = np.matmul(grad_output, y.T)
+        return grad_x, grad_y
+
+
 class View(Function):
     @staticmethod
     def forward(ctx, x, shape):
@@ -158,6 +174,37 @@ class View(Function):
     def backward(ctx, grad_output):
         shape = ctx.shape
         return grad_output.reshape(shape)
+
+
+class Select(Function):
+    @staticmethod
+    def forward(ctx, x, *args):
+        output = x[args]
+        ctx.shape = x.shape
+        ctx.args = args
+        return output
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        shape = ctx.shape
+        args = ctx.args
+        next_grad = np.ones(shape)
+        next_grad[args] = grad_output
+        return next_grad
+
+
+class CopySlices(Function):
+    @staticmethod
+    def forward(ctx, x, y, *args):
+        x[args] = y
+        ctx.args = args
+        return x
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        args = ctx.args
+        next_grad = grad_output[args]
+        return next_grad
 
 
 class Index(Function):
@@ -181,21 +228,17 @@ class Index(Function):
         return next_grad
 
 
-class Select(Function):
+class IndexPut(Function):
     @staticmethod
-    def forward(ctx, x, *args):
-        output = x[args]
-        ctx.shape = x.shape
+    def forward(ctx, x, y, *args):
+        x[args] = y
         ctx.args = args
-        return output
+        return x
 
     @staticmethod
     def backward(ctx, grad_output):
-        shape = ctx.shape
         args = ctx.args
-        next_grad = np.ones(shape)
-        next_grad[args] = grad_output
-        return next_grad
+        return grad_output[args]
 
 
 class MaxPooling(Function):

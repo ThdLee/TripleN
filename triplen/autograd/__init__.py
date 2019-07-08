@@ -15,14 +15,12 @@ def backward(tensor, gradient=None):
             continue
         else:
             outputs = grad_fn.apply(gradient)
-        # print(sys.getrefcount(grad_fn))
         if isinstance(outputs, tuple):
             assert len(outputs) == len(grad_fn.next_functions)
             for func, grad in zip(grad_fn.next_functions, outputs):
                 backward_stack.append((func, grad))
             batch_size = outputs[0].shape[0]
         else:
-            # assert len([func for func in grad_fn.next_functions if func is not None]) == 1
             for func in grad_fn.next_functions:
                 backward_stack.append((func, outputs))
             batch_size = outputs.shape[0]

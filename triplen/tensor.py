@@ -15,7 +15,7 @@ def _tensor_wrapper(data):
 
 
 class Tensor(object):
-    def __init__(self, data, dtype: str = None, requires_grad: bool = False):
+    def __init__(self, data, dtype: type = None, requires_grad: bool = False):
         if isinstance(data, Tensor):
             self.data = data.data
         elif isinstance(data, list) or isinstance(data, tuple):
@@ -127,6 +127,9 @@ class Tensor(object):
     def view(self, *args):
         return View.apply(self, args)
 
+    def matmul(self, other):
+        return MatMul.apply(self, _tensor_wrapper(other))
+
     def __neg__(self):
         return self.mul(-1)
 
@@ -168,6 +171,27 @@ class Tensor(object):
     def __rpow__(self, other):
         return _tensor_wrapper(other).pow(self)
 
+    def __setitem__(self, key, value):
+        if not isinstance(key, tuple):
+            key = (key,)
+        if len(key) > self.ndim():
+            raise IndexError("too many indices for array")
+        index_num = -1
+        for arg in key:
+            if isinstance(arg, list):
+                if index_num >= 0 and index_num != len(arg):
+                    raise IndexError("index mismatch")
+                index_num = len(arg)
+            elif isinstance(arg, slice) or isinstance(arg, int):
+                pass
+            else:
+                raise ValueError("only integers, slices (`:`), ellipsis (`...`), numpy.newaxis (`None`)"
+                                 " and integer or boolean arrays are valid indices")
+        if index_num >= 0:
+            self.__dict__ = IndexPut.apply(self, _tensor_wrapper(value), *key).__dict__
+        else:
+            self.__dict__ = CopySlices.apply(self, _tensor_wrapper(value), *key).__dict__
+
     def __getitem__(self, *args):
         if len(args) > self.ndim():
             raise IndexError("too many indices for array")
@@ -183,7 +207,30 @@ class Tensor(object):
                 raise ValueError("only integers, slices (`:`), ellipsis (`...`), numpy.newaxis (`None`)"
                                  " and integer or boolean arrays are valid indices")
         if index_num >= 0:
-            return Index.apply(index_num, *args)
+            return Index.apply(self, index_num, *args)
         else:
-            return Select.apply(*args)
+            return Select.apply(self, *args)
 
+    def __matmul__(self, other):
+        return self.matmul(other)
+
+    def __rmatmul__(self, other):
+        return _tensor_wrapper(other).matmul(self)
+
+    def __lt__(self, other):
+        return Tensor(self.data.__lt__(_tensor_wrapper(other).data), dtype=np.bool)
+
+    def __le__(self, other):
+        return Tensor(self.data.__le__(_tensor_wrapper(other).data), dtype=np.bool)
+
+    def __gt__(self, other):
+        return Tensor(self.data.__gt__(_tensor_wrapper(other).data), dtype=np.bool)
+
+    def __ge__(self, other):
+        return Tensor(self.data.__ge__(_tensor_wrapper(other).data), dtype=np.bool)
+
+    def __eq__(self, other):
+        return Tensor(self.data.__eq__(_tensor_wrapper(other).data), dtype=np.bool)
+
+    def __ne__(self, other):
+        return Tensor(self.data.__ne__(_tensor_wrapper(other).data), dtype=np.bool)
