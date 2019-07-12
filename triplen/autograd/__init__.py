@@ -14,13 +14,12 @@ def backward(tensor, gradient=None):
             grad_fn.apply(gradient / batch_size)
             continue
         else:
+            batch_size = grad_fn.batch_size
             outputs = grad_fn.apply(gradient)
         if isinstance(outputs, tuple):
             assert len(outputs) == len(grad_fn.next_functions)
             for func, grad in zip(grad_fn.next_functions, outputs):
                 backward_stack.append((func, grad))
-            batch_size = outputs[0].shape[0]
         else:
             for func in grad_fn.next_functions:
                 backward_stack.append((func, outputs))
-            batch_size = outputs.shape[0]

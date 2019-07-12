@@ -9,13 +9,13 @@ class _FunctionBase(object):
         ctx = cls._backward_cls()
         _inputs = tuple(x.data if isinstance(x, triplen.Tensor) else x for x in inputs)
         input_vars = tuple(x for x in inputs if isinstance(x, triplen.Tensor))
-        needs_input_grad = tuple(isinstance(x, triplen.Tensor) and x._requires_grad for x in inputs)
+        needs_input_grad = tuple(isinstance(x, triplen.Tensor) and x.requires_grad for x in inputs)
         is_tensor_input = tuple(isinstance(x, triplen.Tensor) for x in inputs)
         next_functions = [None] * len(input_vars)
         for i, var in enumerate(input_vars):
-            if var._grad_fn is not None and var._requires_grad:
-                next_functions[i] = var._grad_fn
-            elif var._requires_grad:
+            if var.grad_fn is not None and var.requires_grad:
+                next_functions[i] = var.grad_fn
+            elif var.requires_grad:
                 next_functions[i] = var.get_grad_accumulator()
         ctx.next_functions = tuple(next_functions)
         ctx.needs_input_grad = needs_input_grad
@@ -26,9 +26,10 @@ class _FunctionBase(object):
         if not isinstance(tensor_output, np.ndarray):
             tensor_output = np.array(tensor_output)
         tensor_output = triplen.Tensor(tensor_output)
-        if True in [x._requires_grad for x in input_vars]:
-            tensor_output._grad_fn = ctx
-            tensor_output._requires_grad = True
+        ctx.batch_size = tensor_output.size(0)
+        if True in [x.requires_grad for x in input_vars]:
+            tensor_output.requires_grad = True
+            tensor_output.grad_fn = ctx
         return tensor_output
 
 

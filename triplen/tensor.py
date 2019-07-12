@@ -36,6 +36,9 @@ class Tensor(object):
         self._grad = None
         self._grad_fn = None
 
+        shape = self.data.shape
+        self._shape = list(shape) if len(shape) != 0 else [1]
+
     @property
     def requires_grad(self):
         return self._requires_grad
@@ -87,14 +90,15 @@ class Tensor(object):
 
     @property
     def shape(self):
-        return self.data.shape
+        return self._shape
+
+    @shape.getter
+    def shape(self):
+        return self._shape
 
     @property
     def dtype(self):
         return self.data.dtype
-
-    # def __hash__(self):
-    #     return self.data.__hash__
 
     def item(self):
         return self.data.item()
