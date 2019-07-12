@@ -38,6 +38,14 @@ def dropout(x, prob, training):
     return Dropout.apply(x, prob, training)
 
 
+def softmax(x, dim):
+    return Softmax.apply(x, dim)
+
+
+def log_softmax(x, dim):
+    return LogSoftmax.apply(x, dim)
+
+
 def relu(x):
     return Relu.apply(x)
 
@@ -46,5 +54,10 @@ def linear(x, weight, bias):
     return Linear.apply(x, weight, bias)
 
 
+def nll_loss(input, target):
+    return NLLLoss.apply(input, target)
+
+
 def cross_entropy_loss(input, target):
-    return CrossEntropyLoss.apply(input, target)
+    return NLLLoss.apply(LogSoftmax.apply(input, -1), target)
+    # return CrossEntropyLoss.apply(input, target)

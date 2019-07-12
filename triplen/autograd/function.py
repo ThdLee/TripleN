@@ -13,8 +13,8 @@ class _FunctionBase(object):
         is_tensor_input = tuple(isinstance(x, triplen.Tensor) for x in inputs)
         next_functions = [None] * len(input_vars)
         for i, var in enumerate(input_vars):
-            if var.grad_fn is not None and var._requires_grad:
-                next_functions[i] = var.grad_fn
+            if var._grad_fn is not None and var._requires_grad:
+                next_functions[i] = var._grad_fn
             elif var._requires_grad:
                 next_functions[i] = var.get_grad_accumulator()
         ctx.next_functions = tuple(next_functions)
@@ -27,7 +27,7 @@ class _FunctionBase(object):
             tensor_output = np.array(tensor_output)
         tensor_output = triplen.Tensor(tensor_output)
         if True in [x._requires_grad for x in input_vars]:
-            tensor_output.grad_fn = ctx
+            tensor_output._grad_fn = ctx
             tensor_output._requires_grad = True
         return tensor_output
 
@@ -146,6 +146,19 @@ class Pow(Function):
         grad_x = y * (grad_output ** (y - 1))
         grad_y = (x ** y) * np.log(x)
         return grad_x, grad_y
+
+
+class Log(Function):
+    @staticmethod
+    def forward(ctx, x):
+        ctx.save_for_backward(x)
+        return np.log(x)
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        x, = ctx.to_save()
+        next_grad = grad_output * (1 / x)
+        return next_grad
 
 
 class MatMul(Function):
@@ -364,6 +377,58 @@ class Dropout(Function):
     def backward(ctx, grad_output):
         drop, = ctx.to_save
         return drop * grad_output
+
+
+class Softmax(Function):
+    @staticmethod
+    def forward(ctx, x, dim):
+        exp_x = np.exp(x)
+        output = exp_x / np.sum(exp_x, axis=dim, keepdims=True)
+        ctx.save_for_backward(output)
+        ctx.dim = dim
+        return output
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        softmax, = ctx.to_save
+        dim = ctx.dim
+        grad = softmax - softmax * np.sum(softmax, axis=dim, keepdims=True)
+        return grad * grad_output
+
+
+class LogSoftmax(Function):
+    @staticmethod
+    def forward(ctx, x, dim):
+        exp_x = np.exp(x)
+        softmax = exp_x / np.sum(exp_x, axis=dim, keepdims=True)
+        # log_softmax = x - np.log(np.sum(exp_x, axis=dim, keepdims=True))
+        ctx.save_for_backward(softmax)
+        return np.log(softmax)
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        softmax, = ctx.to_save
+        grad = softmax
+        return grad + grad_output
+
+
+class NLLLoss(Function):
+    @staticmethod
+    def forward(ctx, input, target):
+        assert input.ndim == 2
+        assert target.ndim == 1
+        loss = -input[np.arange(input.shape[0]), target]
+        ctx.save_for_backward(target)
+        ctx.shape = input.shape
+        return np.mean(loss)
+
+    @staticmethod
+    def backward(ctx, grad_output=None):
+        target, = ctx.to_save
+        shape = ctx.shape
+        next_grad = np.zeros(shape)
+        next_grad[np.arange(shape[0]), target] = -1
+        return next_grad
 
 
 class CrossEntropyLoss(Function):

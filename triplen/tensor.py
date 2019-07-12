@@ -25,17 +25,16 @@ class Tensor(object):
         else:
             raise TypeError('list, tuple, np.ndarray, Tensor')
 
-        if requires_grad and dtype not in [np.float, np.float16, np.float32, np.float64]:
-            raise RuntimeError('Only Tensor of floating point dtype can require gradients')
-
         if dtype is not None:
+            if requires_grad and dtype not in [np.float, np.float16, np.float32, np.float64]:
+                raise RuntimeError('Only Tensor of floating point dtype can require gradients')
             self.data.astype(dtype)
         else:
             self.data.astype(np.float)
 
         self._requires_grad = requires_grad
         self._grad = None
-        self.grad_fn = None
+        self._grad_fn = None
 
     @property
     def requires_grad(self):
@@ -74,6 +73,19 @@ class Tensor(object):
         self._grad = grad
 
     @property
+    def grad_fn(self):
+        return self._grad_fn
+
+    @grad_fn.getter
+    def grad_fn(self):
+        return self._grad_fn
+
+    @grad_fn.setter
+    def grad_fn(self, grad_fn):
+        if self.requires_grad:
+            self._grad_fn = grad_fn
+
+    @property
     def shape(self):
         return self.data.shape
 
@@ -81,11 +93,14 @@ class Tensor(object):
     def dtype(self):
         return self.data.dtype
 
+    # def __hash__(self):
+    #     return self.data.__hash__
+
     def item(self):
         return self.data.item()
 
     def is_leaf(self):
-        return self.grad_fn is None
+        return self._grad_fn is None
 
     def size(self, dim: int = None):
         assert dim < len(self.shape)
@@ -217,20 +232,20 @@ class Tensor(object):
     def __rmatmul__(self, other):
         return _tensor_wrapper(other).matmul(self)
 
-    def __lt__(self, other):
-        return Tensor(self.data.__lt__(_tensor_wrapper(other).data), dtype=np.bool)
-
-    def __le__(self, other):
-        return Tensor(self.data.__le__(_tensor_wrapper(other).data), dtype=np.bool)
-
-    def __gt__(self, other):
-        return Tensor(self.data.__gt__(_tensor_wrapper(other).data), dtype=np.bool)
-
-    def __ge__(self, other):
-        return Tensor(self.data.__ge__(_tensor_wrapper(other).data), dtype=np.bool)
-
-    def __eq__(self, other):
-        return Tensor(self.data.__eq__(_tensor_wrapper(other).data), dtype=np.bool)
-
-    def __ne__(self, other):
-        return Tensor(self.data.__ne__(_tensor_wrapper(other).data), dtype=np.bool)
+    # def __lt__(self, other):
+    #     return Tensor(self.data.__lt__(_tensor_wrapper(other).data), dtype=np.bool)
+    #
+    # def __le__(self, other):
+    #     return Tensor(self.data.__le__(_tensor_wrapper(other).data), dtype=np.bool)
+    #
+    # def __gt__(self, other):
+    #     return Tensor(self.data.__gt__(_tensor_wrapper(other).data), dtype=np.bool)
+    #
+    # def __ge__(self, other):
+    #     return Tensor(self.data.__ge__(_tensor_wrapper(other).data), dtype=np.bool)
+    #
+    # def __eq__(self, other):
+    #     return Tensor(self.data.__eq__(_tensor_wrapper(other).data), dtype=np.bool)
+    #
+    # def __ne__(self, other):
+    #     return Tensor(self.data.__ne__(_tensor_wrapper(other).data), dtype=np.bool)
