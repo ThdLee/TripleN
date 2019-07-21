@@ -43,9 +43,9 @@ class Tensor(object):
     def requires_grad(self):
         return self._requires_grad
 
-    @requires_grad.getter
-    def requires_grad(self):
-        return self._requires_grad
+    # @requires_grad.getter
+    # def requires_grad(self):
+    #     return self._requires_grad
 
     @requires_grad.setter
     def requires_grad(self, requires_grad):
@@ -79,9 +79,10 @@ class Tensor(object):
     def grad_fn(self):
         return self._grad_fn
 
-    @grad_fn.getter
-    def grad_fn(self):
-        return self._grad_fn
+    # @grad_fn.getter
+    # def grad_fn(self):
+    #     print(self._grad_fn)
+    #     return self._grad_fn
 
     @grad_fn.setter
     def grad_fn(self, grad_fn):

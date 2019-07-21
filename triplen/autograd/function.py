@@ -17,6 +17,7 @@ class _FunctionBase(object):
                 next_functions[i] = var.grad_fn
             elif var.requires_grad:
                 next_functions[i] = var.get_grad_accumulator()
+
         ctx.next_functions = tuple(next_functions)
         ctx.needs_input_grad = needs_input_grad
         ctx.is_tensor_input = is_tensor_input
