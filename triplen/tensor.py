@@ -58,8 +58,8 @@ class Tensor(object):
             return
         triplen.autograd.backward(self, gradient)
 
-    def get_grad_accumulator(self):
-        return triplen.autograd.AccumulateGrad(self)
+    def get_grad_accumulator(self, batch_size):
+        return triplen.autograd.AccumulateGrad(self, batch_size)
 
     @property
     def grad(self):

@@ -12,11 +12,13 @@ class _FunctionBase(object):
         needs_input_grad = tuple(isinstance(x, triplen.Tensor) and x.requires_grad for x in inputs)
         is_tensor_input = tuple(isinstance(x, triplen.Tensor) for x in inputs)
         next_functions = [None] * len(input_vars)
+        batch_size = 1
         for i, var in enumerate(input_vars):
             if var.grad_fn is not None and var.requires_grad:
+                batch_size = var.shape[0]
                 next_functions[i] = var.grad_fn
             elif var.requires_grad:
-                next_functions[i] = var.get_grad_accumulator()
+                next_functions[i] = var.get_grad_accumulator(batch_size)
 
         ctx.next_functions = tuple(next_functions)
         ctx.needs_input_grad = needs_input_grad
@@ -47,11 +49,12 @@ class BackwardFunction(_FunctionBase, _ContextMethodMixin):
 
 
 class AccumulateGrad(_FunctionBase):
-    def __init__(self, tensor):
+    def __init__(self, tensor, batch_size):
         self.tensor = tensor
+        self.batch_size = batch_size
 
     def apply(self, grad):
-        self.tensor.grad += grad
+        self.tensor.grad += grad / self.batch_size
 
 
 class FunctionMeta(type):
@@ -259,6 +262,7 @@ class IndexPut(Function):
 class MaxPooling(Function):
     @staticmethod
     def forward(ctx, x, kernel_size, stride):
+        x = x.transpose([0, 2, 3, 1])
         input_shape = x.shape
         view_shape = (x.shape[0], (x.shape[1] - kernel_size) // stride + 1,
                       (x.shape[2] - kernel_size) // stride + 1, x.shape[3])
@@ -272,19 +276,21 @@ class MaxPooling(Function):
         ctx.save_for_backward(index)
         ctx.stride = stride
         output = output.max(axis=1).reshape(view_shape)
-        return output
+        return output.transpose([0, 3, 1, 2])
 
     @staticmethod
     def backward(ctx, grad_output):
+        grad_output = grad_output.transpose([0, 2, 3, 1])
         index, = ctx.to_save
         stride = ctx.stride
         next_grad = np.repeat(np.repeat(grad_output, stride, axis=1), stride, axis=2) * index
-        return next_grad
+        return next_grad.transpose([0, 3, 1, 2])
 
 
 class Conv2D(Function):
     @staticmethod
     def forward(ctx, x, weight, bias, stride, padding):
+        x = x.transpose([0, 2, 3, 1])
         kernel_size, in_channels, out_channels = weight.shape[0], weight.shape[-2], weight.shape[-1]
         x = np.pad(x, ((0, 0), (padding, padding), (padding, padding), (0, 0)), 'constant', constant_values=0)
         view_shape = (x.shape[0], (x.shape[1] - kernel_size) // stride + 1,
@@ -298,10 +304,11 @@ class Conv2D(Function):
         ctx.save_for_backward(col_img, weight, bias)
         output = np.matmul(output.reshape(output.shape[:3] + (-1,)),
                            weight.reshape((-1, out_channels))) + bias
-        return output
+        return output.transpose([0, 3, 1, 2])
 
     @staticmethod
     def backward(ctx, grad_output):
+        grad_output = grad_output.transpose([0, 2, 3, 1])
         col_img, weight, bias = ctx.to_save
         padding, stride = ctx.padding, ctx.stride
         kernel_size, in_channels, out_channels = weight.shape[0], weight.shape[-2], weight.shape[-1]
@@ -324,6 +331,7 @@ class Conv2D(Function):
                                      stride * pad_grad.strides[2], pad_grad.strides[3]) + pad_grad.strides[1:3])
         weights = np.flipud(np.fliplr(weight)).swapaxes(2, 3).reshape((-1, in_channels))
         next_grad = np.matmul(output.reshape(output.shape[:3] + (-1,)), weights)
+        next_grad = next_grad.transpose([0, 3, 1, 2])
         return next_grad, grad_weight, grad_bias
 
 

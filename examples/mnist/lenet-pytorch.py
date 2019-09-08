@@ -1,13 +1,14 @@
 import numpy as np
-import triplen
-import triplen.nn as nn
-import triplen.nn.functional as F
-import triplen.optim as optim
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+import torch.optim as optim
 import time
 from data_utils import MNISTDataset
 from tqdm import tqdm
 
 np.random.seed(123)
+torch.manual_seed(123)
 
 batch_size = 64
 epochs = 10
@@ -21,8 +22,8 @@ class Lenet(nn.Module):
     def __init__(self):
         super(Lenet, self).__init__()
 
-        self.conv1 = nn.Conv2D(1, 16, 5)
-        self.conv2 = nn.Conv2D(16, 32, 3)
+        self.conv1 = nn.Conv2d(1, 16, 5)
+        self.conv2 = nn.Conv2d(16, 32, 3)
         self.fc1 = nn.Linear(5 * 5 * 32, 200)
         self.fc2 = nn.Linear(200, 10)
         self.dropout = nn.Dropout(0.5)
@@ -51,15 +52,15 @@ for epoch in range(epochs):
     model.train()
 
     for images, labels in tqdm(train_dataset):
-        images = triplen.Tensor(images)
-        labels = triplen.Tensor(labels)
+        images = torch.FloatTensor(images)
+        labels = torch.LongTensor(labels)
 
         optimizer.zero_grad()
 
         output = model(images)
         loss = criterion(output, labels)
 
-        train_acc += (np.argmax(output.numpy(), axis=1) == labels.numpy()).sum()
+        train_acc += (torch.argmax(output, dim=1) == labels).sum().item()
 
         loss.backward()
         optimizer.step()
@@ -72,14 +73,14 @@ for epoch in range(epochs):
     model.eval()
     # validation
     for images, labels in tqdm(test_dataset):
-        images = triplen.Tensor(images)
-        labels = triplen.Tensor(labels)
+        images = torch.FloatTensor(images)
+        labels = torch.LongTensor(labels)
 
         output = model(images)
 
         loss = criterion(output, labels)
 
-        val_acc += (np.argmax(output.numpy(), axis=1) == labels.numpy()).sum()
+        val_acc += (torch.argmax(output, dim=1) == labels).sum().item()
         val_loss += loss.item()
 
     print("Time: {} Epoch: {} Val Acc: {:.2f} Val Loss: {:.4f}".
