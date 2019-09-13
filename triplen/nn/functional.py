@@ -59,5 +59,5 @@ def nll_loss(input, target):
 
 
 def cross_entropy_loss(input, target):
-    return NLLLoss.apply(LogSoftmax.apply(input, -1), target)
-    # return CrossEntropyLoss.apply(input, target)
+    # return NLLLoss.apply(LogSoftmax.apply(input, -1), target)
+    return CrossEntropyLoss.apply(input, target)

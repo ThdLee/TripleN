@@ -2,15 +2,14 @@ import numpy as np
 from numpy.lib.stride_tricks import as_strided
 import triplen
 
-
 class _FunctionBase(object):
     @classmethod
     def apply(cls, *inputs):
         ctx = cls._backward_cls()
-        _inputs = tuple(x.data if isinstance(x, triplen.Tensor) else x for x in inputs)
-        input_vars = tuple(x for x in inputs if isinstance(x, triplen.Tensor))
-        needs_input_grad = tuple(isinstance(x, triplen.Tensor) and x.requires_grad for x in inputs)
-        is_tensor_input = tuple(isinstance(x, triplen.Tensor) for x in inputs)
+        _inputs = tuple([x.data if isinstance(x, triplen.Tensor) else x for x in inputs])
+        input_vars = tuple([x for x in inputs if isinstance(x, triplen.Tensor)])
+        needs_input_grad = tuple([isinstance(x, triplen.Tensor) and x.requires_grad for x in inputs])
+        is_tensor_input = tuple([isinstance(x, triplen.Tensor) for x in inputs])
         next_functions = [None] * len(input_vars)
         batch_size = 1
         for i, var in enumerate(input_vars):
@@ -54,7 +53,7 @@ class AccumulateGrad(_FunctionBase):
         self.batch_size = batch_size
 
     def apply(self, grad):
-        self.tensor.grad += grad / self.batch_size
+        self.tensor.grad += grad # / self.batch_size
 
 
 class FunctionMeta(type):
@@ -339,23 +338,24 @@ class Linear(Function):
     @staticmethod
     def forward(ctx, input, weight, bias):
         assert input.shape[-1] == weight.shape[0]
-        batch_size = input.shape[0]
+        hidden_size = input.shape[-1]
         output_size = weight.shape[-1]
         ctx.input_shape = input.shape
-        input = input.reshape(batch_size, -1)
+        input = input.reshape(-1, hidden_size)
         ctx.save_for_backward(input, weight)
-        output = np.matmul(input, weight) + bias
+        output = np.dot(input, weight) + bias
         return output.reshape(input.shape[:-1] + (output_size,))
 
     @staticmethod
     def backward(ctx, grad_output):
         input, weight = ctx.to_save
         input_shape = ctx.input_shape
+        batch_size = grad_output.shape[0]
 
-        grad_weight = np.matmul(input.T, grad_output)
-        grad_bias = grad_output.sum(axis=0)
+        grad_weight = np.einsum('ji,jk->ik', input, grad_output, optimize=True) / batch_size # np.matmul(input.T, grad_output)
+        grad_bias = np.einsum('i...->...', grad_output, optimize=True) / batch_size # grad_output.sum(axis=0)
 
-        next_grad = np.matmul(grad_output, weight.T)
+        next_grad = np.einsum('ij,kj->ik', grad_output, weight, optimize=True)
         next_grad = next_grad.reshape(input_shape)
         return next_grad, grad_weight, grad_bias
 
@@ -376,81 +376,65 @@ class Relu(Function):
 class Dropout(Function):
     @staticmethod
     def forward(ctx, x, prob, training):
-        if training:
-            drop = np.random.binomial(1, 1 - prob, x.shape)
+        ctx.training = training
+        if not training:
+            return x
         else:
-            drop = np.ones(x.shape)
+            drop = np.random.binomial(1, 1 - prob, x.shape)
         ctx.save_for_backward(drop)
-        return drop * x
+        return np.einsum('...,...->...', x, drop, optimize=True)
 
     @staticmethod
     def backward(ctx, grad_output):
+        if not ctx.training:
+            return grad_output
         drop, = ctx.to_save
-        return drop * grad_output
+        return np.einsum('...,...->...', drop, grad_output, optimize=True)
 
 
 class Softmax(Function):
     @staticmethod
     def forward(ctx, x, dim):
-        exp_x = np.exp(x)
-        output = exp_x / np.sum(exp_x, axis=dim, keepdims=True)
-        ctx.save_for_backward(output)
+        exp_x = np.exp(x - x.max(axis=dim, keepdims=True))
+        exp_x /= exp_x.sum(axis=dim, keepdims=True)
+        ctx.save_for_backward(exp_x)
         ctx.dim = dim
-        return output
+        return exp_x
 
     @staticmethod
     def backward(ctx, grad_output):
         softmax, = ctx.to_save
-        dim = ctx.dim
-        grad = softmax - softmax * np.sum(softmax, axis=dim, keepdims=True)
-        return grad * grad_output
+        return softmax * (grad_output - grad_output * softmax)
 
 
 class LogSoftmax(Function):
     @staticmethod
     def forward(ctx, x, dim):
-        exp_x = np.exp(x)
-        softmax = exp_x / np.sum(exp_x, axis=dim, keepdims=True)
-        # log_softmax = x - np.log(np.sum(exp_x, axis=dim, keepdims=True))
-        ctx.save_for_backward(softmax)
-        return np.log(softmax)
+        exp_x = np.exp(x - x.max(axis=dim, keepdims=True))
+        exp_x /= exp_x.sum(axis=dim, keepdims=True)
+        ctx.save_for_backward(exp_x)
+        ctx.dim = dim
+        return np.log(exp_x)
 
     @staticmethod
     def backward(ctx, grad_output):
         softmax, = ctx.to_save
-        grad = softmax
-        return grad + grad_output
-
-
-class NLLLoss(Function):
-    @staticmethod
-    def forward(ctx, input, target):
-        assert input.ndim == 2
-        assert target.ndim == 1
-        loss = -input[np.arange(input.shape[0]), target]
-        ctx.save_for_backward(target)
-        ctx.shape = input.shape
-        return np.mean(loss)
-
-    @staticmethod
-    def backward(ctx, grad_output=None):
-        target, = ctx.to_save
-        shape = ctx.shape
-        next_grad = np.zeros(shape)
-        next_grad[np.arange(shape[0]), target] = -1
-        return next_grad
+        return grad_output - softmax * grad_output
 
 
 class CrossEntropyLoss(Function):
     @staticmethod
     def forward(ctx, input, target):
-        exp_output = np.exp(input)
-        ctx.save_for_backward(exp_output, input, target)
-        return np.mean(np.log(np.sum(exp_output, axis=1)) - input[np.arange(input.shape[0]), target])
+        target = np.eye(input.shape[-1])[target.reshape(-1)]
+        exp_x = np.exp(input - input.max(axis=-1, keepdims=True))
+        exp_x /= exp_x.sum(axis=-1, keepdims=True)
+        loss = -1 * np.einsum('ij,ij->', target, np.log(exp_x), optimize=True) / target.shape[0]
+        ctx.save_for_backward(exp_x, target)
+        return loss
 
     @staticmethod
     def backward(ctx, grad_output=None):
-        exp_output, input, target = ctx.to_save
-        next_grad = exp_output / np.sum(exp_output, axis=1, keepdims=True)
-        next_grad[np.arange(input.shape[0]), target] -= 1
+        input, target = ctx.to_save
+        next_grad = np.copy(input)
+        next_grad -= target
         return next_grad

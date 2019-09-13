@@ -43,7 +43,8 @@ model = Lenet()
 
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.Adam(model.parameters(), learning_rate)
-
+acc_array = []
+loss_array = []
 for epoch in range(epochs):
 
     train_acc, val_acc = 0, 0
@@ -86,3 +87,8 @@ for epoch in range(epochs):
     print("Time: {} Epoch: {} Val Acc: {:.2f} Val Loss: {:.4f}".
           format(time.strftime("%H:%M:%S"), epoch, val_acc * 100.0 / test_dataset.data_len, val_loss / len(test_dataset)))
 
+    acc_array.append(val_acc * 100.0 / test_dataset.data_len)
+    loss_array.append(val_loss / len(test_dataset))
+
+print(acc_array)
+print(loss_array)
