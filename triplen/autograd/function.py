@@ -261,76 +261,66 @@ class IndexPut(Function):
 class MaxPooling(Function):
     @staticmethod
     def forward(ctx, x, kernel_size, stride):
-        x = x.transpose([0, 2, 3, 1])
-        input_shape = x.shape
-        view_shape = (x.shape[0], (x.shape[1] - kernel_size) // stride + 1,
-                      (x.shape[2] - kernel_size) // stride + 1, x.shape[3])
-        output = as_strided(x, shape=view_shape + (kernel_size, kernel_size),
-                            strides=(x.strides[0], stride * x.strides[1],
-                                     stride * x.strides[2], x.strides[3]) + x.strides[1:3])
-        output = output.reshape((-1, kernel_size * kernel_size))
-        index = np.zeros(output.shape)
-        index[np.arange(index.shape[0]), output.argmax(axis=1)] = 1
-        index = index.reshape(input_shape)
-        ctx.save_for_backward(index)
+        output = x.reshape(x.shape[0], x.shape[1],
+                           x.shape[2] // stride, stride,
+                           x.shape[3] // stride, stride)
+        output = output[:, :, :, :kernel_size, :, :kernel_size].max(axis=(3, 5))
+        mask = output.repeat(stride, axis=2).repeat(stride, axis=3) != x
+        ctx.save_for_backward(mask)
         ctx.stride = stride
-        output = output.max(axis=1).reshape(view_shape)
-        return output.transpose([0, 3, 1, 2])
+        ctx.kernel_size = kernel_size
+
+        return output
 
     @staticmethod
     def backward(ctx, grad_output):
-        grad_output = grad_output.transpose([0, 2, 3, 1])
-        index, = ctx.to_save
+        mask, = ctx.to_save
         stride = ctx.stride
-        next_grad = np.repeat(np.repeat(grad_output, stride, axis=1), stride, axis=2) * index
-        return next_grad.transpose([0, 3, 1, 2])
+        next_grad = grad_output.repeat(stride, axis=2).repeat(stride, axis=3)
+        next_grad[mask] = 0
+        return next_grad
 
 
 class Conv2D(Function):
     @staticmethod
     def forward(ctx, x, weight, bias, stride, padding):
-        x = x.transpose([0, 2, 3, 1])
-        kernel_size, in_channels, out_channels = weight.shape[0], weight.shape[-2], weight.shape[-1]
+        out_channels, in_channels, kernel_size = weight.shape[0], weight.shape[1], weight.shape[-1]
         x = np.pad(x, ((0, 0), (padding, padding), (padding, padding), (0, 0)), 'constant', constant_values=0)
-        view_shape = (x.shape[0], (x.shape[1] - kernel_size) // stride + 1,
-                      (x.shape[2] - kernel_size) // stride + 1, x.shape[3])
-        output = as_strided(x, shape=view_shape + (kernel_size, kernel_size),
-                            strides=(x.strides[0], stride * x.strides[1],
-                                     stride * x.strides[2], x.strides[3]) + x.strides[1:3])
+
+        H, W = (x.shape[2] - kernel_size) // stride + 1, (x.shape[3] - kernel_size) // stride + 1
+        shape = (x.shape[0], x.shape[1], H, W, kernel_size, kernel_size)
+        strides = (x.strides[0], x.strides[1], stride * x.strides[2], stride * x.strides[3], *x.strides[2:])
+        output = as_strided(x, shape=shape, strides=strides).transpose([0, 2, 3, 1, 4, 5])
+
         col_img = output.reshape((output.shape[0], -1, (kernel_size ** 2) * in_channels))
         ctx.padding = padding
         ctx.stride = stride
         ctx.save_for_backward(col_img, weight, bias)
-        output = np.matmul(output.reshape(output.shape[:3] + (-1,)),
-                           weight.reshape((-1, out_channels))) + bias
-        return output.transpose([0, 3, 1, 2])
+        output = np.matmul(col_img, weight.reshape((out_channels, -1)).swapaxes(0, 1)) + bias
+        output = output.swapaxes(1, 2).reshape(-1, out_channels, H, W)
+        return output
 
     @staticmethod
     def backward(ctx, grad_output):
-        grad_output = grad_output.transpose([0, 2, 3, 1])
         col_img, weight, bias = ctx.to_save
         padding, stride = ctx.padding, ctx.stride
-        kernel_size, in_channels, out_channels = weight.shape[0], weight.shape[-2], weight.shape[-1]
+        out_channels, in_channels, kernel_size = weight.shape[0], weight.shape[1], weight.shape[-1]
 
-        col_grad_output = grad_output.reshape((grad_output.shape[0], -1, out_channels))
+        col_grad_output = grad_output.reshape((grad_output.shape[0], out_channels, -1))
+        grad_weight = np.matmul(col_grad_output, col_img).sum(axis=0).reshape(out_channels, in_channels, kernel_size, kernel_size) / grad_output.shape[0]
+        grad_bias = np.sum(col_grad_output, axis=(0, 2)) / grad_output.shape[0]
 
-        grad_weight = np.matmul(col_img.swapaxes(1, 2),
-                                col_grad_output).sum(axis=0).reshape(weight.shape)
-        grad_bias = np.sum(col_grad_output, axis=(0, 1))
+        P = kernel_size - 1 - padding
+        pad_grad = np.pad(grad_output, ((0, 0), (0, 0), (P, P), (P, P)), 'constant')
+        H, W = (pad_grad.shape[2] - kernel_size) // stride + 1, (pad_grad.shape[3] - kernel_size) // stride + 1
+        shape = (pad_grad.shape[0], pad_grad.shape[1], H, W, kernel_size, kernel_size)
+        strides = (pad_grad.strides[0], pad_grad.strides[1],
+                   stride * pad_grad.strides[2], stride * pad_grad.strides[3], *pad_grad.strides[2:])
+        grad_strided = as_strided(pad_grad, shape=shape, strides=strides).transpose([0, 2, 3, 1, 4, 5])
+        grad_strided = grad_strided.reshape((grad_strided.shape[0], -1, (kernel_size ** 2) * out_channels))
 
-        pad_grad = np.pad(grad_output, ((0, 0),
-                                        (kernel_size - 1 - padding, kernel_size - 1 - padding),
-                                        (kernel_size - 1 - padding, kernel_size - 1 - padding),
-                                        (0, 0)), 'constant', constant_values=0)
-
-        view_shape = (pad_grad.shape[0], (pad_grad.shape[1] - kernel_size) // stride + 1,
-                      (pad_grad.shape[2] - kernel_size) // stride + 1, pad_grad.shape[3])
-        output = as_strided(pad_grad, shape=view_shape + (kernel_size, kernel_size),
-                            strides=(pad_grad.strides[0], stride * pad_grad.strides[1],
-                                     stride * pad_grad.strides[2], pad_grad.strides[3]) + pad_grad.strides[1:3])
-        weights = np.flipud(np.fliplr(weight)).swapaxes(2, 3).reshape((-1, in_channels))
-        next_grad = np.matmul(output.reshape(output.shape[:3] + (-1,)), weights)
-        next_grad = next_grad.transpose([0, 3, 1, 2])
+        weights = weight[:, :, ::-1, ::-1].transpose([0, 2, 3, 1]).reshape((-1, in_channels))
+        next_grad = np.matmul(grad_strided, weights).swapaxes(1, 2).reshape((-1, in_channels, H, W))
         return next_grad, grad_weight, grad_bias
 
 
@@ -352,8 +342,8 @@ class Linear(Function):
         input_shape = ctx.input_shape
         batch_size = grad_output.shape[0]
 
-        grad_weight = np.einsum('ji,jk->ik', input, grad_output, optimize=True) / batch_size # np.matmul(input.T, grad_output)
-        grad_bias = np.einsum('i...->...', grad_output, optimize=True) / batch_size # grad_output.sum(axis=0)
+        grad_weight = np.einsum('ji,jk->ik', input, grad_output, optimize=True) / batch_size
+        grad_bias = np.einsum('i...->...', grad_output, optimize=True) / batch_size
 
         next_grad = np.einsum('ij,kj->ik', grad_output, weight, optimize=True)
         next_grad = next_grad.reshape(input_shape)
@@ -381,15 +371,16 @@ class Dropout(Function):
             return x
         else:
             drop = np.random.binomial(1, 1 - prob, x.shape)
+        fix_value = 1 / (1 - prob)
         ctx.save_for_backward(drop)
-        return np.einsum('...,...->...', x, drop, optimize=True)
+        return drop * x * fix_value
 
     @staticmethod
     def backward(ctx, grad_output):
         if not ctx.training:
             return grad_output
         drop, = ctx.to_save
-        return np.einsum('...,...->...', drop, grad_output, optimize=True)
+        return drop * grad_output
 
 
 class Softmax(Function):

@@ -26,8 +26,8 @@ def view(x, shape):
     return output
 
 
-def max_pool2d(x, kernel_size, stride):
-    return MaxPooling.apply(x, kernel_size, stride)
+def max_pool2d(x, kernel_size, stride=None):
+    return MaxPooling.apply(x, kernel_size, stride or kernel_size)
 
 
 def conv2d(x, weight, bias, stride, padding):
@@ -52,10 +52,6 @@ def relu(x):
 
 def linear(x, weight, bias):
     return Linear.apply(x, weight, bias)
-
-
-def nll_loss(input, target):
-    return NLLLoss.apply(input, target)
 
 
 def cross_entropy_loss(input, target):

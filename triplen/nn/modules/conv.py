@@ -15,7 +15,7 @@ class Conv2D(Module):
         self.kernel_size = kernel_size
         self.padding = padding
 
-        self.weight = Parameter(triplen.tensor(kernel_size, kernel_size, in_channels, out_channels))
+        self.weight = Parameter(triplen.tensor(out_channels, in_channels, kernel_size, kernel_size))
         self.bias = Parameter(triplen.tensor(out_channels))
         self.reset_parameters()
 
