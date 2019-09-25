@@ -7,11 +7,11 @@ import time
 from data_utils import MNISTDataset
 from tqdm import tqdm
 
-np.random.seed(123)
-torch.manual_seed(123)
+np.random.seed(0)
+torch.manual_seed(0)
 
 batch_size = 64
-epochs = 10
+epochs = 5
 learning_rate = 1e-3
 
 train_dataset = MNISTDataset('./data/mnist', batch_size=batch_size, shuffle=True)
@@ -43,8 +43,8 @@ model = Lenet()
 
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.Adam(model.parameters(), learning_rate)
-acc_array = []
-loss_array = []
+
+
 for epoch in range(epochs):
 
     train_acc, val_acc = 0, 0
@@ -61,15 +61,18 @@ for epoch in range(epochs):
         output = model(images)
         loss = criterion(output, labels)
 
-        train_acc += (torch.argmax(output, dim=1) == labels).sum().item()
+        batch_acc = (torch.argmax(output, dim=1) == labels).sum().item()
+        train_acc += batch_acc
 
         loss.backward()
         optimizer.step()
 
         train_loss += loss.item()
 
+    acc = train_acc * 100.0 / train_dataset.data_len
+    loss = train_loss / len(train_dataset)
     print("Time: {} Epoch: {} Train Acc: {:.2f} Train Loss: {:.4f}".
-          format(time.strftime("%H:%M:%S"), epoch, train_acc * 100.0 / train_dataset.data_len, train_loss / len(train_dataset)))
+          format(time.strftime("%H:%M:%S"), epoch, acc, loss))
 
     model.eval()
     # validation
@@ -81,14 +84,11 @@ for epoch in range(epochs):
 
         loss = criterion(output, labels)
 
-        val_acc += (torch.argmax(output, dim=1) == labels).sum().item()
+        batch_acc = (torch.argmax(output, dim=1) == labels).sum().item()
+        val_acc += batch_acc
         val_loss += loss.item()
 
+    acc = val_acc * 100.0 / test_dataset.data_len
+    loss = val_loss / len(test_dataset)
     print("Time: {} Epoch: {} Val Acc: {:.2f} Val Loss: {:.4f}".
-          format(time.strftime("%H:%M:%S"), epoch, val_acc * 100.0 / test_dataset.data_len, val_loss / len(test_dataset)))
-
-    acc_array.append(val_acc * 100.0 / test_dataset.data_len)
-    loss_array.append(val_loss / len(test_dataset))
-
-print(acc_array)
-print(loss_array)
+          format(time.strftime("%H:%M:%S"), epoch, acc, loss))

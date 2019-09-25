@@ -11,13 +11,11 @@ class _FunctionBase(object):
         needs_input_grad = tuple([isinstance(x, triplen.Tensor) and x.requires_grad for x in inputs])
         is_tensor_input = tuple([isinstance(x, triplen.Tensor) for x in inputs])
         next_functions = [None] * len(input_vars)
-        batch_size = 1
         for i, var in enumerate(input_vars):
             if var.grad_fn is not None and var.requires_grad:
-                batch_size = var.shape[0]
                 next_functions[i] = var.grad_fn
             elif var.requires_grad:
-                next_functions[i] = var.get_grad_accumulator(batch_size)
+                next_functions[i] = var.get_grad_accumulator()
 
         ctx.next_functions = tuple(next_functions)
         ctx.needs_input_grad = needs_input_grad
@@ -34,6 +32,9 @@ class _FunctionBase(object):
             tensor_output.grad_fn = ctx
         return tensor_output
 
+    def __repr__(self):
+        return "<{}>".format(self.__class__.__name__)
+
 
 class _ContextMethodMixin(object):
     def save_for_backward(self, *tensors):
@@ -48,12 +49,11 @@ class BackwardFunction(_FunctionBase, _ContextMethodMixin):
 
 
 class AccumulateGrad(_FunctionBase):
-    def __init__(self, tensor, batch_size):
+    def __init__(self, tensor):
         self.tensor = tensor
-        self.batch_size = batch_size
 
     def apply(self, grad):
-        self.tensor.grad += grad # / self.batch_size
+        self.tensor.grad += grad
 
 
 class FunctionMeta(type):
@@ -307,8 +307,10 @@ class Conv2D(Function):
         out_channels, in_channels, kernel_size = weight.shape[0], weight.shape[1], weight.shape[-1]
 
         col_grad_output = grad_output.reshape((grad_output.shape[0], out_channels, -1))
-        grad_weight = np.matmul(col_grad_output, col_img).sum(axis=0).reshape(out_channels, in_channels, kernel_size, kernel_size) / grad_output.shape[0]
-        grad_bias = np.sum(col_grad_output, axis=(0, 2)) / grad_output.shape[0]
+
+        grad_weight = np.einsum('ijk,ikl->jl', col_grad_output, col_img, optimize=True).\
+                          reshape((out_channels, in_channels, kernel_size, kernel_size)) / grad_output.shape[0]
+        grad_bias = np.einsum('ijk->j', col_grad_output, optimize=True) / grad_output.shape[0]
 
         P = kernel_size - 1 - padding
         pad_grad = np.pad(grad_output, ((0, 0), (0, 0), (P, P), (P, P)), 'constant')
@@ -333,7 +335,7 @@ class Linear(Function):
         ctx.input_shape = input.shape
         input = input.reshape(-1, hidden_size)
         ctx.save_for_backward(input, weight)
-        output = np.dot(input, weight) + bias
+        output = np.matmul(input, weight) + bias
         return output.reshape(input.shape[:-1] + (output_size,))
 
     @staticmethod

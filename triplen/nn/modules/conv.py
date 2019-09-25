@@ -6,9 +6,9 @@ from .. import init
 from .. import functional as F
 
 
-class Conv2D(Module):
+class Conv2d(Module):
     def __init__(self, in_channels: int, out_channels: int, kernel_size: int = 3, stride: int = 1, padding: int = 0):
-        super(Conv2D, self).__init__()
+        super(Conv2d, self).__init__()
         self.in_channels = in_channels
         self.out_channels = out_channels
         self.stride = stride

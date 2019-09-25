@@ -58,8 +58,8 @@ class Tensor(object):
             return
         triplen.autograd.backward(self, gradient)
 
-    def get_grad_accumulator(self, batch_size):
-        return triplen.autograd.AccumulateGrad(self, batch_size)
+    def get_grad_accumulator(self):
+        return triplen.autograd.AccumulateGrad(self)
 
     @property
     def grad(self):
@@ -108,10 +108,10 @@ class Tensor(object):
         return self._grad_fn is None
 
     def size(self, dim: int = None):
-        assert dim < len(self.shape)
         if dim is None:
             return self.shape
         else:
+            assert dim < len(self.shape)
             return self.shape[dim]
 
     def ndim(self):
@@ -254,3 +254,6 @@ class Tensor(object):
     #
     # def __ne__(self, other):
     #     return Tensor(self.data.__ne__(_tensor_wrapper(other).data), dtype=np.bool)
+
+    def __repr__(self):
+        return "tensor({}, grad_fn={})".format(self.data, self.grad_fn)
