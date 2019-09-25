@@ -46,5 +46,4 @@ A series of Examples is in [examples folder](https://github.com/ThdLee/TripleN/t
 
 ## Compare With PyTorch
 
-![myplot](D:\Projects\TripleN\myplot.png)
-
+![myplot](https://github.com/ThdLee/TripleN/blob/master/myplot.png)
