@@ -44,3 +44,7 @@ class Lenet(nn.Module):
 
 A series of Examples is in [examples folder](https://github.com/ThdLee/TripleN/tree/master/examples).
 
+## Compare With PyTorch
+
+![myplot](D:\Projects\TripleN\myplot.png)
+
