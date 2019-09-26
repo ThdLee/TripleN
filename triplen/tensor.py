@@ -16,21 +16,26 @@ def _tensor_wrapper(data):
 
 class Tensor(object):
     def __init__(self, data, dtype: type = None, requires_grad: bool = False):
+
         if isinstance(data, Tensor):
             self.data = data.data
+            dtype = self.data.dtype if dtype is None else dtype
         elif isinstance(data, list) or isinstance(data, tuple):
             self.data = np.array(data)
         elif isinstance(data, np.ndarray):
             self.data = data
+            dtype = self.data.dtype if dtype is None else dtype
         else:
             raise TypeError('list, tuple, np.ndarray, Tensor')
 
+        dtype = None if dtype == np.float64 else dtype
         if dtype is not None:
             if requires_grad and dtype not in [np.float, np.float16, np.float32, np.float64]:
                 raise RuntimeError('Only Tensor of floating point dtype can require gradients')
-            self.data.astype(dtype)
+            if dtype != self.data.dtype:
+                self.data = self.data.astype(dtype, copy=False)
         else:
-            self.data.astype(np.float)
+            self.data = self.data.astype(np.float32, copy=False)
 
         self._requires_grad = requires_grad
         self._grad = None
@@ -124,10 +129,10 @@ class Tensor(object):
         return self.data
 
     def uniform_(self, a=0.0, b=1.0):
-        self.data = np.random.uniform(a, b, self.shape)
+        self.data = np.random.uniform(a, b, self.shape).astype(dtype=self.dtype, copy=False)
 
     def normal_(self, mean=0.0, std=1.0):
-        self.data = np.random.normal(mean, std, self.shape)
+        self.data = np.random.normal(mean, std, self.shape).astype(dtype=self.dtype, copy=False)
 
     def add(self, other):
         return Add.apply(self, _tensor_wrapper(other))

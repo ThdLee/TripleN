@@ -40,6 +40,7 @@ class Lenet(nn.Module):
 
 model = Lenet()
 
+
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.Adam(model.parameters(), learning_rate)
 
